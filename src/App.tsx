@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuthStore } from './store/authStore';
 import { Layout } from './components/Layout';
-import { Dashboard } from './pages/Dashboard';
+import { DashboardEnhanced } from './pages/DashboardEnhanced';
 import { Login } from './pages/Login';
 import { Clients } from './pages/Clients';
 import { ServiceOrders } from './pages/ServiceOrders';
@@ -25,7 +25,7 @@ export default function App() {
 
   const renderPage = () => {
     switch (currentPage) {
-      case 'dashboard': return <Dashboard />;
+      case 'dashboard': return <DashboardEnhanced />;
       case 'clients': return <Clients />;
       case 'orders': return <ServiceOrders onClassify={(id) => { setSelectedOS(id); setCurrentPage('laudos'); }} onBill={(id) => { setSelectedOS(id); setCurrentPage('billing_page'); }} />;
       case 'laudos': return <Classification osId={selectedOS} onBack={() => { setSelectedOS(null); setCurrentPage('orders'); }} />;

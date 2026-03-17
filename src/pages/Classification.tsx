@@ -13,10 +13,75 @@ import {
   ChevronLeft,
   X,
   AlertCircle,
-  ClipboardCheck
+  ClipboardCheck,
+  Edit,
+  Download
 } from 'lucide-react';
 import { apiFetch } from '../services/api';
 import { motion, AnimatePresence } from 'motion/react';
+import PDFViewerModal from '../components/PDFViewerModal';
+import ViewPDFButton from '../components/ViewPDFButton';
+
+// Função para gerar PDF
+const generatePDFFromReport = async (report: any) => {
+  console.log('=== INÍCIO DA GERAÇÃO DO PDF CORPORATIVO V3 ===')
+  console.log('Dados do relatório:', report)
+  
+  try {
+    // Importar o serviço de PDF corporativo V3
+    const { generateCorporatePDFV3 } = await import('../services/corporatePDFServiceV3')
+    console.log('✅ Serviço PDF corporativo V3 importado com sucesso')
+    
+    // Preparar dados no formato esperado
+    const laudoData = {
+      id: String(report.id || 'LAUDO-' + Date.now()),
+      created_at: String(report.created_at || new Date().toISOString()),
+      os_id: String(report.os_id || 'N/A'),
+      classifier_name: String(report.classifier_name || 'N/A'),
+      final_classification: String(report.final_classification || 'NÃO CLASSIFICADO'),
+      moisture: String(report.moisture || 'N/A'),
+      impurities: String(report.impurities || 'N/A'),
+      burnt: String(report.burnt || 'N/A'),
+      charcoal: String(report.charcoal || 'N/A'),
+      fermented: String(report.fermented || 'N/A'),
+      moldy: String(report.moldy || 'N/A'),
+      germinated: String(report.germinated || 'N/A'),
+      license_plate: String(report.license_plate || 'N/A'),
+      carrier: String(report.carrier || 'N/A'),
+      weight_kg: String(report.weight_kg || 'N/A'),
+      test_type: String(report.test_type || 'N/A'),
+      client_name: String(report.client_name || 'Cliente não informado'),
+      product_name: String(report.product_name || 'Produto não informado'),
+      origin: String(report.origin || 'Origem não informada'),
+      destination: String(report.destination || 'Destino não informado'),
+      damaged: String(report.damaged || 'N/A'),
+      immature: String(report.immature || 'N/A'),
+      fragments: String(report.fragments || 'N/A'),
+      insect_damage: String(report.insect_damage || 'N/A')
+    }
+    
+    console.log('✅ Dados preparados:', laudoData)
+    
+    // Gerar o PDF corporativo V3
+    const pdfData = await generateCorporatePDFV3(laudoData)
+    
+    // Converter data URL para blob e baixar
+    const link = document.createElement('a')
+    link.href = pdfData
+    link.download = `LAUDO_CORPORATIVO_V3_${laudoData.id.replace(/\//g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    
+    console.log('✅ PDF corporativo V3 gerado e baixado')
+    
+  } catch (error) {
+    console.error('❌ Erro ao gerar PDF corporativo V3:', error)
+    alert('Erro ao gerar PDF: ' + error.message)
+  }
+  
+  console.log('=== FIM DA GERAÇÃO DO PDF ===')
+}
 
 interface ClassificationProps {
   osId: number | null;
@@ -29,6 +94,76 @@ export const Classification = ({ osId: initialOsId, onBack }: ClassificationProp
   const [step, setStep] = useState(1);
   const [serviceOrders, setServiceOrders] = useState<any[]>([]);
   const [classifiers, setClassifiers] = useState<any[]>([]);
+  const [editingReportId, setEditingReportId] = useState<string | null>(null);
+  
+  // Estados para o modal de visualização de PDF
+  const [isPDFModalOpen, setIsPDFModalOpen] = useState(false);
+  const [pdfData, setPdfData] = useState<string | null>(null);
+  const [pdfFileName, setPdfFileName] = useState('');
+  
+  // Função para editar laudo
+  const editReport = (report: any) => {
+    console.log('=== INÍCIO DA EDIÇÃO DO LAUDO ===')
+    console.log('Dados do relatório:', report)
+    
+    try {
+      // Preencher o formulário com os dados do relatório
+      setFormData({
+        os_id: report.os_id || '',
+        classifier_id: report.classifier_id || '',
+        date: report.date || new Date().toISOString().split('T')[0],
+        license_plate: report.license_plate || '',
+        weight_kg: report.weight_kg || '',
+        carrier: report.carrier || '',
+        invoice_url: report.invoice_url || '',
+        test_type: report.test_type || 'Convencional',
+        live_insects: report.live_insects || 'Não',
+        dead_insects: report.dead_insects || 'Não',
+        odor: report.odor || 'Não',
+        toxicity: report.toxicity || 'Não',
+        burnt_and_scorched: report.burnt_and_scorched || '',
+        scorched: report.scorched || '',
+        moldy: report.moldy || '',
+        fermented: report.fermented || '',
+        germinated: report.germinated || '',
+        damaged: report.damaged || '',
+        immature: report.immature || '',
+        foreign_matter: report.foreign_matter || '',
+        fragments: report.fragments || '',
+        insect_damage: report.insect_damage || '',
+        final_classification: report.final_classification || ''
+      })
+      
+      // Abrir o modal para edição
+      setIsModalOpen(true)
+      setStep(1)
+      
+      // Armazenar o ID do relatório sendo editado
+      setEditingReportId(report.id)
+      
+      console.log('✅ Formulário preenchido para edição')
+      
+    } catch (error) {
+      console.error('❌ Erro ao preparar edição:', error)
+      alert('Erro ao preparar edição: ' + error.message)
+    }
+    
+    console.log('=== FIM DA EDIÇÃO ===')
+  }
+  
+  // Função para abrir modal de visualização de PDF
+  const openPDFModal = (data: string, fileName: string) => {
+    setPdfData(data)
+    setPdfFileName(fileName)
+    setIsPDFModalOpen(true)
+  }
+  
+  // Função para fechar modal de PDF
+  const closePDFModal = () => {
+    setIsPDFModalOpen(false)
+    setPdfData(null)
+    setPdfFileName('')
+  }
   
   const [formData, setFormData] = useState({
     os_id: initialOsId || '',
@@ -164,15 +299,32 @@ export const Classification = ({ osId: initialOsId, onBack }: ClassificationProp
                     <div className="text-sm text-stone-700">{report.classifier_name}</div>
                   </td>
                   <td className="p-4 text-right">
-                    <button className="p-2 text-stone-400 hover:text-emerald-600 transition-colors">
-                      <FileText size={18} />
-                    </button>
+                    <div className="flex items-center gap-2 justify-end">
+                      <ViewPDFButton 
+                        laudo={report}
+                        onOpenModal={openPDFModal}
+                      />
+                      <button 
+                        onClick={() => editReport(report)}
+                        className="p-2 text-stone-400 hover:text-blue-600 transition-colors"
+                        title="Editar Laudo"
+                      >
+                        <Edit size={18} />
+                      </button>
+                      <button 
+                        onClick={() => generatePDFFromReport(report)}
+                        className="p-2 text-stone-400 hover:text-emerald-600 transition-colors"
+                        title="Baixar PDF do Laudo"
+                      >
+                        <Download size={18} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
               {reports.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="p-12 text-center text-stone-400 italic">
+                  <td colSpan={7} className="p-12 text-center text-stone-400 italic">
                     Nenhum laudo registrado até o momento.
                   </td>
                 </tr>
@@ -557,6 +709,14 @@ export const Classification = ({ osId: initialOsId, onBack }: ClassificationProp
           </div>
         )}
       </AnimatePresence>
+      
+      {/* Modal de Visualização de PDF */}
+      <PDFViewerModal
+        isOpen={isPDFModalOpen}
+        onClose={closePDFModal}
+        pdfData={pdfData}
+        fileName={pdfFileName}
+      />
     </div>
   );
 };

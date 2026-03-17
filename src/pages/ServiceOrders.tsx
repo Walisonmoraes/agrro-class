@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Clock, CheckCircle2, AlertCircle, Receipt, X, Save } from 'lucide-react';
+import { Plus, Search, Clock, CheckCircle2, AlertCircle, Receipt, X, Save, Edit, Trash2, Eye } from 'lucide-react';
 import { apiFetch } from '../services/api';
 
 interface OSProps {
@@ -11,8 +11,10 @@ export const ServiceOrders: React.FC<OSProps> = ({ onClassify, onBill }) => {
   const [orders, setOrders] = useState<any[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
+  const [editingOrder, setEditingOrder] = useState<any>(null);
   
   // Data for selects
   const [clients, setClients] = useState<any[]>([]);
@@ -24,6 +26,21 @@ export const ServiceOrders: React.FC<OSProps> = ({ onClassify, onBill }) => {
 
   // Form state
   const [formData, setFormData] = useState({
+    client_id: '',
+    origin_id: '',
+    embarkation_id: '',
+    destination_id: '',
+    product_id: '',
+    contract_number: '',
+    lot_weight: '',
+    producer_name: '',
+    quantity: '',
+    unit: 'KG',
+    classifier_id: ''
+  });
+
+  // Edit form state
+  const [editFormData, setEditFormData] = useState({
     client_id: '',
     origin_id: '',
     embarkation_id: '',
@@ -51,6 +68,18 @@ export const ServiceOrders: React.FC<OSProps> = ({ onClassify, onBill }) => {
     apiFetch('/api/destinations').then(setDestinations).catch(console.error);
     apiFetch('/api/products').then(setProducts).catch(console.error);
     apiFetch('/api/classifiers').then(setClassifiers).catch(console.error);
+    
+    // Debug - verificar dados carregados
+    setTimeout(() => {
+      console.log('Dados dos selects:', {
+        clients: clients.length,
+        products: products.length,
+        origins: origins.length,
+        embarkationPoints: embarkationPoints.length,
+        destinations: destinations.length,
+        classifiers: classifiers.length
+      });
+    }, 1000);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -94,6 +123,69 @@ export const ServiceOrders: React.FC<OSProps> = ({ onClassify, onBill }) => {
       alert('Erro ao carregar detalhes da OS');
     } finally {
       setLoadingDetails(false);
+    }
+  };
+
+  const handleEdit = async (id: number) => {
+    try {
+      const data = await apiFetch(`/api/service-orders/${id}`);
+      console.log('Dados da OS para edição:', data); // Debug
+      setEditingOrder(data);
+      setEditFormData({
+        client_id: data.client_id?.toString() || '',
+        origin_id: data.origin_id?.toString() || '',
+        embarkation_id: data.embarkation_id?.toString() || '',
+        destination_id: data.destination_id?.toString() || '',
+        product_id: data.product_id?.toString() || '',
+        contract_number: data.contract_number || '',
+        lot_weight: data.lot_weight?.toString() || '',
+        producer_name: data.producer_name || '',
+        quantity: data.quantity?.toString() || '',
+        unit: data.unit || 'KG',
+        classifier_id: data.classifier_id?.toString() || ''
+      });
+      setShowEditModal(true);
+    } catch (error) {
+      console.error('Erro ao carregar OS para edição:', error);
+      alert('Erro ao carregar OS para edição');
+    }
+  };
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingOrder) return;
+    
+    try {
+      await apiFetch(`/api/service-orders/${editingOrder.id}`, {
+        method: 'PUT',
+        body: JSON.stringify(editFormData)
+      });
+      
+      setShowEditModal(false);
+      setEditingOrder(null);
+      loadOrders();
+      alert('Ordem de Serviço atualizada com sucesso!');
+    } catch (error: any) {
+      console.error('Erro ao atualizar OS:', error);
+      alert('Erro ao atualizar Ordem de Serviço: ' + (error.message || 'Erro desconhecido'));
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!confirm('Tem certeza que deseja excluir esta Ordem de Serviço? Esta ação não pode ser desfeita.')) {
+      return;
+    }
+    
+    try {
+      await apiFetch(`/api/service-orders/${id}`, {
+        method: 'DELETE'
+      });
+      
+      loadOrders();
+      alert('Ordem de Serviço excluída com sucesso!');
+    } catch (error: any) {
+      console.error('Erro ao excluir OS:', error);
+      alert('Erro ao excluir Ordem de Serviço: ' + (error.message || 'Erro desconhecido'));
     }
   };
 
@@ -155,30 +247,49 @@ export const ServiceOrders: React.FC<OSProps> = ({ onClassify, onBill }) => {
                   {getStatusBadge(order.status)}
                 </td>
                 <td className="px-6 py-4">
-                  <div className="flex gap-3">
+                  <div className="flex items-center gap-2">
                     {order.status === 'OPEN' && (
                       <button 
                         onClick={() => onClassify(order.id)}
-                        className="text-emerald-600 hover:text-emerald-700 font-bold text-xs uppercase tracking-widest"
+                        className="text-emerald-600 hover:text-emerald-700 p-2 rounded-lg hover:bg-emerald-50 transition-colors"
+                        title="Classificar"
                       >
-                        Classificar
+                        <CheckCircle2 size={16} />
                       </button>
                     )}
                     {order.status === 'FINISHED' && (
                       <button 
                         onClick={() => onBill(order.id)}
-                        className="text-blue-600 hover:text-blue-700 font-bold text-xs uppercase tracking-widest"
+                        className="text-blue-600 hover:text-blue-700 p-2 rounded-lg hover:bg-blue-50 transition-colors"
+                        title="Faturar"
                       >
-                        Faturar
+                        <Receipt size={16} />
                       </button>
                     )}
                     <button 
-                      onClick={() => handleViewDetails(order.id)}
-                      className="text-stone-400 hover:text-stone-600 font-bold text-xs uppercase tracking-widest disabled:opacity-50"
-                      disabled={loadingDetails}
+                      onClick={() => handleEdit(order.id)}
+                      className="text-amber-600 hover:text-amber-700 p-2 rounded-lg hover:bg-amber-50 transition-colors"
+                      title="Editar"
                     >
-                      {loadingDetails && selectedOrder?.id === order.id ? '...' : 'Detalhes'}
+                      <Edit size={16} />
                     </button>
+                    <button 
+                      onClick={() => handleViewDetails(order.id)}
+                      className="text-stone-400 hover:text-stone-600 p-2 rounded-lg hover:bg-stone-50 transition-colors disabled:opacity-50"
+                      disabled={loadingDetails}
+                      title="Detalhes"
+                    >
+                      <Eye size={16} />
+                    </button>
+                    {order.status === 'OPEN' && (
+                      <button 
+                        onClick={() => handleDelete(order.id)}
+                        className="text-red-600 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition-colors"
+                        title="Excluir"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -459,6 +570,208 @@ export const ServiceOrders: React.FC<OSProps> = ({ onClassify, onBill }) => {
                 Fechar
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Editar O.S. */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
+            <div className="p-6 border-b border-stone-100 bg-stone-50">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-stone-900">Editar Ordem de Serviço</h2>
+                <button 
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setEditingOrder(null);
+                  }}
+                  className="p-2 hover:bg-stone-200 rounded-lg transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+            
+            <form onSubmit={handleUpdate} className="p-8 space-y-6 max-h-[80vh] overflow-y-auto">
+              {/* Debug - mostrar dados carregados */}
+              {editingOrder && (
+                <div className="bg-amber-50 p-4 rounded-lg mb-4">
+                  <p className="text-xs text-amber-800">Debug - Editando OS: {editingOrder.os_number}</p>
+                  <p className="text-xs text-amber-600">Cliente ID: {editFormData.client_id} | Produto ID: {editFormData.product_id}</p>
+                </div>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-stone-500 uppercase tracking-wider">Cliente</label>
+                  <select 
+                    className="w-full p-3 bg-stone-50 border border-stone-200 rounded-xl outline-none focus:border-emerald-500 transition-all"
+                    value={editFormData.client_id}
+                    onChange={e => {
+                      console.log('Cliente alterado:', e.target.value);
+                      setEditFormData({...editFormData, client_id: e.target.value});
+                    }}
+                    required
+                  >
+                    <option value="">Selecione</option>
+                    {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-stone-500 uppercase tracking-wider">Produto</label>
+                  <select 
+                    className="w-full p-3 bg-stone-50 border border-stone-200 rounded-xl outline-none focus:border-emerald-500 transition-all"
+                    value={editFormData.product_id}
+                    onChange={e => {
+                      console.log('Produto alterado:', e.target.value);
+                      setEditFormData({...editFormData, product_id: e.target.value});
+                    }}
+                    required
+                  >
+                    <option value="">Selecione</option>
+                    {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-stone-500 uppercase tracking-wider">Origem / Fazenda</label>
+                  <select 
+                    className="w-full p-3 bg-stone-50 border border-stone-200 rounded-xl outline-none focus:border-emerald-500 transition-all"
+                    value={editFormData.origin_id}
+                    onChange={e => {
+                      const origin = origins.find(o => o.id === parseInt(e.target.value));
+                      setEditFormData({
+                        ...editFormData, 
+                        origin_id: e.target.value,
+                        producer_name: origin ? origin.producer_name : editFormData.producer_name
+                      });
+                    }}
+                  >
+                    <option value="">Selecione</option>
+                    {origins.filter(o => !editFormData.client_id || o.client_id === parseInt(editFormData.client_id)).map(o => (
+                      <option key={o.id} value={o.id}>{o.farm_name} ({o.producer_name})</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-stone-500 uppercase tracking-wider">Ponto de Embarque</label>
+                  <select 
+                    className="w-full p-3 bg-stone-50 border border-stone-200 rounded-xl outline-none focus:border-emerald-500 transition-all"
+                    value={editFormData.embarkation_id}
+                    onChange={e => setEditFormData({...editFormData, embarkation_id: e.target.value})}
+                  >
+                    <option value="">Selecione</option>
+                    {embarkationPoints.map(ep => <option key={ep.id} value={ep.id}>{ep.name}</option>)}
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-stone-500 uppercase tracking-wider">Destino</label>
+                  <select 
+                    className="w-full p-3 bg-stone-50 border border-stone-200 rounded-xl outline-none focus:border-emerald-500 transition-all"
+                    value={editFormData.destination_id}
+                    onChange={e => setEditFormData({...editFormData, destination_id: e.target.value})}
+                  >
+                    <option value="">Selecione</option>
+                    {destinations.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-stone-500 uppercase tracking-wider">Classificador</label>
+                  <select 
+                    className="w-full p-3 bg-stone-50 border border-stone-200 rounded-xl outline-none focus:border-emerald-500 transition-all"
+                    value={editFormData.classifier_id}
+                    onChange={e => setEditFormData({...editFormData, classifier_id: e.target.value})}
+                    required
+                  >
+                    <option value="">Selecione</option>
+                    {classifiers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-stone-500 uppercase tracking-wider">Nº Contrato</label>
+                  <input 
+                    type="text" 
+                    className="w-full p-3 bg-stone-50 border border-stone-200 rounded-xl outline-none focus:border-emerald-500 transition-all"
+                    value={editFormData.contract_number}
+                    onChange={e => setEditFormData({...editFormData, contract_number: e.target.value})}
+                    placeholder="Número do contrato"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-stone-500 uppercase tracking-wider">Produtor</label>
+                  <input 
+                    type="text" 
+                    className="w-full p-3 bg-stone-50 border border-stone-200 rounded-xl outline-none focus:border-emerald-500 transition-all"
+                    value={editFormData.producer_name}
+                    onChange={e => setEditFormData({...editFormData, producer_name: e.target.value})}
+                    placeholder="Nome do produtor"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-stone-500 uppercase tracking-wider">Quantidade</label>
+                  <input 
+                    type="number" 
+                    step="0.01"
+                    className="w-full p-3 bg-stone-50 border border-stone-200 rounded-xl outline-none focus:border-emerald-500 transition-all"
+                    value={editFormData.quantity}
+                    onChange={e => setEditFormData({...editFormData, quantity: e.target.value})}
+                    required
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-stone-500 uppercase tracking-wider">Unidade</label>
+                  <select 
+                    className="w-full p-3 bg-stone-50 border border-stone-200 rounded-xl outline-none focus:border-emerald-500 transition-all"
+                    value={editFormData.unit}
+                    onChange={e => setEditFormData({...editFormData, unit: e.target.value})}
+                  >
+                    <option value="KG">Quilogramas (KG)</option>
+                    <option value="TON">Toneladas (TON)</option>
+                    <option value="SACA">Sacas (SACA)</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-stone-500 uppercase tracking-wider">Peso do Lote</label>
+                  <input 
+                    type="number" 
+                    step="0.01"
+                    className="w-full p-3 bg-stone-50 border border-stone-200 rounded-xl outline-none focus:border-emerald-500 transition-all"
+                    value={editFormData.lot_weight}
+                    onChange={e => setEditFormData({...editFormData, lot_weight: e.target.value})}
+                    placeholder="Peso total do lote"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-4 pt-6 border-t border-stone-100">
+                <button 
+                  type="button"
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setEditingOrder(null);
+                  }}
+                  className="px-8 py-3 bg-stone-200 hover:bg-stone-300 text-stone-800 font-bold rounded-xl transition-all"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="submit"
+                  className="px-8 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-all shadow-lg shadow-emerald-600/20 flex items-center gap-2"
+                >
+                  <Save size={18} />
+                  Salvar Alterações
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

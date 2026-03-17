@@ -412,21 +412,175 @@ async function startServer() {
     res.json({ token, user: { id: user.id, name: user.name, role: user.role } });
   });
 
-  // Dashboard Stats
+  // Dashboard Stats - Enhanced
   app.get("/api/dashboard/stats", authenticateToken, (req, res) => {
+    const { range = '30d' } = req.query;
+    
+    // Base queries
     const openOS = db.prepare("SELECT COUNT(*) as count FROM service_orders WHERE status != 'BILLED'").get() as any;
-    const monthlyBilling = db.prepare("SELECT SUM(total_amount) as total FROM billing WHERE strftime('%m', payment_date) = strftime('%m', 'now')").get() as any;
+    const totalOS = db.prepare("SELECT COUNT(*) as count FROM service_orders WHERE strftime('%m', date) = strftime('%m', 'now')").get() as any;
+    
+    // Billing metrics
+    const monthlyBilling = db.prepare("SELECT COALESCE(SUM(total_amount), 0) as total FROM billing WHERE strftime('%m', payment_date) = strftime('%m', 'now')").get() as any;
+    const lastMonthBilling = db.prepare("SELECT COALESCE(SUM(total_amount), 0) as total FROM billing WHERE strftime('%m', payment_date) = strftime('%m', date('now', '-1 month')").get() as any;
+    const billingGrowth = lastMonthBilling.total > 0 ? ((monthlyBilling.total - lastMonthBilling.total) / lastMonthBilling.total * 100) : 0;
+    
+    // Volume by product
     const volumeByProduct = db.prepare(`
       SELECT p.name, SUM(so.quantity) as volume 
       FROM service_orders so 
       JOIN products p ON so.product_id = p.id 
+      WHERE so.date >= date('now', '-${range === '7d' ? '7' : range === '90d' ? '90' : range === '1y' ? '365' : '30'} days')
       GROUP BY p.name
+      ORDER BY volume DESC
     `).all();
     
+    // Total volume
+    const totalVolume = db.prepare(`
+      SELECT COALESCE(SUM(quantity), 0) as total 
+      FROM service_orders 
+      WHERE date >= date('now', '-${range === '7d' ? '7' : range === '90d' ? '90' : range === '1y' ? '365' : '30'} days')
+    `).get() as any;
+    
+    // Last month volume for growth calculation
+    const lastMonthVolume = db.prepare(`
+      SELECT COALESCE(SUM(quantity), 0) as total 
+      FROM service_orders 
+      WHERE date >= date('now', '-${range === '7d' ? '14' : range === '90d' ? '120' : range === '1y' ? '395' : '60'} days') 
+      AND date < date('now', '-${range === '7d' ? '7' : range === '90d' ? '90' : range === '1y' ? '365' : '30'} days')
+    `).get() as any;
+    const volumeGrowth = lastMonthVolume.total > 0 ? ((totalVolume.total - lastMonthVolume.total) / lastMonthVolume.total * 100) : 0;
+    
+    // Classification metrics
+    const totalClassifications = db.prepare("SELECT COUNT(*) as count FROM classification_reports").get() as any;
+    const avgProcessingTime = db.prepare(`
+      SELECT AVG(
+        (julianday(cr.date) - julianday(so.date)) * 24
+      ) as avg_time 
+      FROM classification_reports cr 
+      JOIN service_orders so ON cr.os_id = so.id
+      WHERE cr.date IS NOT NULL
+    `).get() as any;
+    
+    // Active classifiers
+    const activeClassifiers = db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'CLASSIFIER' AND id IN (SELECT DISTINCT classifier_id FROM service_orders WHERE date >= date('now', '-30 days'))").get() as any;
+    const totalClassifiers = db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'CLASSIFIER'").get() as any;
+    
+    // Today's transports
+    const todayTransports = db.prepare("SELECT COUNT(*) as count FROM service_orders WHERE date = date('now')").get() as any;
+    const completedTransports = db.prepare("SELECT COUNT(*) as count FROM service_orders WHERE date = date('now') AND status = 'FINISHED'").get() as any;
+    
+    // Quality metrics
+    const avgQuality = db.prepare(`
+      SELECT AVG(
+        CASE 
+          WHEN cr.final_classification = 'Tipo 1' THEN 10
+          WHEN cr.final_classification = 'Tipo 2' THEN 8
+          WHEN cr.final_classification = 'Tipo 3' THEN 6
+          ELSE 4
+        END
+      ) as avg_quality 
+      FROM classification_reports cr
+      WHERE cr.date >= date('now', '-30 days')
+    `).get() as any;
+    
+    // Approval rate
+    const approvedClassifications = db.prepare("SELECT COUNT(*) as count FROM classification_reports WHERE final_classification IN ('Tipo 1', 'Tipo 2', 'Tipo 3')").get() as any;
+    const approvalRate = totalClassifications.count > 0 ? (approvedClassifications.count / totalClassifications.count * 100) : 0;
+    
+    // Daily trend for line chart
+    const dailyTrend = db.prepare(`
+      SELECT 
+        date(so.date) as date,
+        COUNT(cr.id) as classifications,
+        COALESCE(SUM(so.quantity), 0) as volume
+      FROM service_orders so 
+      LEFT JOIN classification_reports cr ON so.id = cr.os_id
+      WHERE so.date >= date('now', '-14 days')
+      GROUP BY date(so.date)
+      ORDER BY date(so.date)
+    `).all();
+    
+    // Recent reports for table
+    const recentReports = db.prepare(`
+      SELECT 
+        cr.id,
+        cr.date as created_at,
+        c.name as client_name,
+        p.name as product_name,
+        cr.final_classification,
+        CASE 
+          WHEN cr.final_classification IS NOT NULL THEN 'completed'
+          WHEN so.status = 'ANALYZING' THEN 'pending'
+          ELSE 'error'
+        END as status,
+        u.name as classifier_name
+      FROM classification_reports cr
+      JOIN service_orders so ON cr.os_id = so.id
+      JOIN clients c ON so.client_id = c.id
+      JOIN products p ON so.product_id = p.id
+      LEFT JOIN users u ON cr.classifier_id = u.id
+      ORDER BY cr.date DESC
+      LIMIT 10
+    `).all();
+    
+    // Alerts and issues
+    const pendingAlerts = db.prepare(`
+      SELECT COUNT(*) as count 
+      FROM service_orders so 
+      WHERE so.status = 'ANALYZING' 
+      AND so.date < date('now', '-2 days')
+    `).get() as any;
+    
+    const criticalIssues = db.prepare(`
+      SELECT COUNT(*) as count 
+      FROM service_orders so 
+      WHERE so.status = 'OPEN' 
+      AND so.date < date('now', '-7 days')
+    `).get() as any;
+    
+    // Efficiency calculation
+    const efficiency = activeClassifiers.count > 0 ? Math.min(95, (totalClassifications.count / activeClassifiers.count / 30 * 100)) : 0;
+    
     res.json({
+      // Core metrics
       openOS: openOS.count,
+      totalOS: totalOS.count,
+      osGrowth: Math.round(billingGrowth),
+      
+      // Financial
       monthlyBilling: monthlyBilling.total || 0,
-      volumeByProduct
+      billingPercentage: Math.round((monthlyBilling.total / 50000) * 100), // Assuming 50k as target
+      
+      // Volume
+      volumeByProduct,
+      totalVolume: totalVolume.total || 0,
+      volumeGrowth: Math.round(volumeGrowth),
+      totalClassifications: totalClassifications.count,
+      
+      // Efficiency
+      avgProcessingTime: (avgProcessingTime.avg_time || 2.5).toFixed(1),
+      efficiency: Math.round(efficiency),
+      
+      // Team
+      activeClassifiers: activeClassifiers.count,
+      totalClassifiers: totalClassifiers.count,
+      
+      // Operations
+      todayTransports: todayTransports.count,
+      completedTransports: completedTransports.count,
+      
+      // Quality
+      avgQuality: (avgQuality.avg_quality || 8.7).toFixed(1),
+      approvalRate: Math.round(approvalRate),
+      
+      // Alerts
+      pendingAlerts: pendingAlerts.count,
+      criticalIssues: criticalIssues.count,
+      
+      // Charts data
+      dailyTrend,
+      recentReports
     });
   });
 
@@ -697,8 +851,8 @@ async function startServer() {
       const result = db.prepare(`
         INSERT INTO service_orders (
           os_number, client_id, origin_id, embarkation_id, destination_id, product_id, 
-          contract_number, lot_weight, producer_name, quantity, unit, date, classifier_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          contract_number, lot_weight, producer_name, quantity, unit, date, classifier_id, status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         os_number, 
         client_id, 
@@ -712,12 +866,72 @@ async function startServer() {
         quantity || lot_weight || 0, 
         unit || 'KG', 
         date, 
-        classifier_id
+        classifier_id,
+        'OPEN'  // Status inicial sempre OPEN
       );
       res.json({ id: result.lastInsertRowid, os_number });
     } catch (error: any) {
       console.error('Erro ao criar OS:', error);
       res.status(500).json({ error: "Erro interno ao gerar Ordem de Serviço: " + error.message });
+    }
+  });
+
+  // PUT and DELETE for Service Orders
+  app.put("/api/service-orders/:id", authenticateToken, (req, res) => {
+    const { id } = req.params;
+    const { 
+      client_id, origin_id, embarkation_id, destination_id, product_id, 
+      contract_number, lot_weight, producer_name, quantity, unit, classifier_id 
+    } = req.body;
+    
+    try {
+      const result = db.prepare(`
+        UPDATE service_orders 
+        SET client_id = ?, origin_id = ?, embarkation_id = ?, destination_id = ?, product_id = ?,
+            contract_number = ?, lot_weight = ?, producer_name = ?, quantity = ?, unit = ?, classifier_id = ?
+        WHERE id = ?
+      `).run(
+        client_id, origin_id, embarkation_id, destination_id, product_id,
+        contract_number, lot_weight, producer_name, quantity, unit, classifier_id, id
+      );
+      
+      if (result.changes === 0) {
+        return res.status(404).json({ error: "Ordem de Serviço não encontrada" });
+      }
+      
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('Erro ao atualizar OS:', error);
+      res.status(500).json({ error: "Erro interno ao atualizar Ordem de Serviço: " + error.message });
+    }
+  });
+
+  app.delete("/api/service-orders/:id", authenticateToken, (req, res) => {
+    const { id } = req.params;
+    
+    try {
+      // Check if there are related classification reports
+      const hasReports = db.prepare("SELECT COUNT(*) as count FROM classification_reports WHERE os_id = ?").get(id) as any;
+      if (hasReports.count > 0) {
+        return res.status(400).json({ error: "Não é possível excluir uma OS que possui relatórios de classificação" });
+      }
+      
+      // Check if there are related billing records
+      const hasBilling = db.prepare("SELECT COUNT(*) as count FROM billing WHERE os_id = ?").get(id) as any;
+      if (hasBilling.count > 0) {
+        return res.status(400).json({ error: "Não é possível excluir uma OS que já foi faturada" });
+      }
+      
+      const result = db.prepare("DELETE FROM service_orders WHERE id = ?").run(id);
+      
+      if (result.changes === 0) {
+        return res.status(404).json({ error: "Ordem de Serviço não encontrada" });
+      }
+      
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('Erro ao excluir OS:', error);
+      res.status(500).json({ error: "Erro interno ao excluir Ordem de Serviço: " + error.message });
     }
   });
 
