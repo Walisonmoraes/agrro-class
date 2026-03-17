@@ -1,0 +1,350 @@
+import React, { useState, useEffect } from 'react';
+import { Plus, Search, MapPin, Phone, Mail, X, Save } from 'lucide-react';
+import { apiFetch } from '../services/api';
+
+export const Clients = () => {
+  const [clients, setClients] = useState<any[]>([]);
+  const [showModal, setShowModal] = useState(false);
+  
+  // Form states
+  const [clientForm, setClientForm] = useState({
+    name: '', 
+    document: '', 
+    trading_name: '',
+    cep: '',
+    street: '',
+    complement: '',
+    number: '',
+    neighborhood: '',
+    city: '',
+    state: '',
+    phone: '', 
+    email: '', 
+    tariff: '',
+    cadence: '',
+    daily_rate: '',
+    contact_person: ''
+  });
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    const c = await apiFetch('/api/clients');
+    setClients(c);
+  };
+
+  const handleSaveClient = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await apiFetch('/api/clients', {
+        method: 'POST',
+        body: JSON.stringify(clientForm)
+      });
+      setShowModal(false);
+      setClientForm({ 
+        name: '', document: '', trading_name: '', cep: '', street: '', 
+        complement: '', number: '', neighborhood: '', city: '', state: '', 
+        phone: '', email: '', tariff: '', cadence: '', daily_rate: '', contact_person: '' 
+      });
+      loadData();
+    } catch (err) {
+      alert('Erro ao salvar cliente');
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-stone-800">Clientes</h2>
+        <button 
+          onClick={() => setShowModal(true)}
+          className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl flex items-center gap-2 font-medium transition-all"
+        >
+          <Plus size={20} />
+          Novo Cliente
+        </button>
+      </div>
+
+      <div className="bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden">
+        <div className="p-4 border-b border-stone-100 flex items-center gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" size={18} />
+            <input 
+              type="text" 
+              placeholder="Pesquisar..." 
+              className="w-full pl-10 pr-4 py-2 bg-stone-50 border border-stone-200 rounded-lg outline-none focus:border-emerald-500 transition-all text-sm"
+            />
+          </div>
+        </div>
+
+        <table className="w-full text-left border-collapse">
+          <thead className="bg-stone-50 text-stone-500 text-xs uppercase tracking-wider font-bold">
+            <tr>
+              <th className="px-6 py-4">Nome / Razão Social</th>
+              <th className="px-6 py-4">CPF/CNPJ</th>
+              <th className="px-6 py-4">Contato</th>
+              <th className="px-6 py-4 text-right">Ações</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-stone-100">
+            {clients.map(client => (
+              <tr key={client.id} className="hover:bg-stone-50 transition-colors">
+                <td className="px-6 py-4">
+                  <p className="font-semibold text-stone-800">{client.name}</p>
+                  <p className="text-xs text-stone-500">{client.contact_person}</p>
+                </td>
+                <td className="px-6 py-4 text-sm text-stone-600 font-mono">{client.document}</td>
+                <td className="px-6 py-4">
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2 text-xs text-stone-500">
+                      <Phone size={12} /> {client.phone}
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-stone-500">
+                      <Mail size={12} /> {client.email}
+                    </div>
+                  </div>
+                </td>
+                <td className="px-6 py-4 text-right">
+                  <button className="text-emerald-600 hover:text-emerald-700 font-medium text-sm">Editar</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-stone-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl overflow-hidden border border-stone-200">
+            <div className="p-6 border-b border-stone-100 flex items-center justify-between bg-stone-50">
+              <h3 className="text-lg font-bold text-stone-800">Cadastrar Cliente</h3>
+              <button onClick={() => setShowModal(false)} className="text-stone-400 hover:text-stone-600 transition-colors">
+                <X size={24} />
+              </button>
+            </div>
+            
+            <form onSubmit={handleSaveClient} className="p-8 space-y-6 max-h-[85vh] overflow-y-auto">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-2 space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-1">
+                      <label className="text-sm font-semibold text-stone-700">Razão Social:</label>
+                      <input 
+                        type="text" required
+                        className="w-full p-3 bg-stone-50 border border-stone-200 rounded-xl outline-none focus:border-emerald-500 transition-all"
+                        value={clientForm.name}
+                        onChange={e => setClientForm({...clientForm, name: e.target.value})}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-sm font-semibold text-stone-700">Telefone:</label>
+                      <input 
+                        type="text"
+                        className="w-full p-3 bg-stone-50 border border-stone-200 rounded-xl outline-none focus:border-emerald-500 transition-all"
+                        value={clientForm.phone}
+                        onChange={e => setClientForm({...clientForm, phone: e.target.value})}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-1">
+                      <label className="text-sm font-semibold text-stone-700">CNPJ:</label>
+                      <input 
+                        type="text" required
+                        className="w-full p-3 bg-stone-50 border border-stone-200 rounded-xl outline-none focus:border-emerald-500 transition-all"
+                        value={clientForm.document}
+                        onChange={e => setClientForm({...clientForm, document: e.target.value})}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-sm font-semibold text-stone-700">E-mail:</label>
+                      <input 
+                        type="email"
+                        className="w-full p-3 bg-stone-50 border border-stone-200 rounded-xl outline-none focus:border-emerald-500 transition-all"
+                        value={clientForm.email}
+                        onChange={e => setClientForm({...clientForm, email: e.target.value})}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-1">
+                      <label className="text-sm font-semibold text-stone-700">Nome Fantasia:</label>
+                      <input 
+                        type="text"
+                        className="w-full p-3 bg-stone-50 border border-stone-200 rounded-xl outline-none focus:border-emerald-500 transition-all"
+                        value={clientForm.trading_name}
+                        onChange={e => setClientForm({...clientForm, trading_name: e.target.value})}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-sm font-semibold text-stone-700">Tarifa R$ (por Tonelada):</label>
+                      <input 
+                        type="number" step="0.01"
+                        className="w-full p-3 bg-stone-50 border border-stone-200 rounded-xl outline-none focus:border-emerald-500 transition-all"
+                        value={clientForm.tariff}
+                        onChange={e => setClientForm({...clientForm, tariff: e.target.value})}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-sm font-semibold text-stone-700">CEP:</label>
+                        <input 
+                          type="text"
+                          className="w-full p-3 bg-stone-50 border border-stone-200 rounded-xl outline-none focus:border-emerald-500 transition-all"
+                          value={clientForm.cep}
+                          onChange={e => setClientForm({...clientForm, cep: e.target.value})}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-sm font-semibold text-stone-700">Logradouro:</label>
+                        <input 
+                          type="text"
+                          className="w-full p-3 bg-stone-50 border border-stone-200 rounded-xl outline-none focus:border-emerald-500 transition-all"
+                          value={clientForm.street}
+                          onChange={e => setClientForm({...clientForm, street: e.target.value})}
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-sm font-semibold text-stone-700">Cadência (kg):</label>
+                      <input 
+                        type="number"
+                        className="w-full p-3 bg-stone-50 border border-stone-200 rounded-xl outline-none focus:border-emerald-500 transition-all"
+                        value={clientForm.cadence}
+                        onChange={e => setClientForm({...clientForm, cadence: e.target.value})}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-sm font-semibold text-stone-700">Complemento:</label>
+                        <input 
+                          type="text"
+                          className="w-full p-3 bg-stone-50 border border-stone-200 rounded-xl outline-none focus:border-emerald-500 transition-all"
+                          value={clientForm.complement}
+                          onChange={e => setClientForm({...clientForm, complement: e.target.value})}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-sm font-semibold text-stone-700">Número:</label>
+                        <input 
+                          type="text"
+                          className="w-full p-3 bg-stone-50 border border-stone-200 rounded-xl outline-none focus:border-emerald-500 transition-all"
+                          value={clientForm.number}
+                          onChange={e => setClientForm({...clientForm, number: e.target.value})}
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-sm font-semibold text-stone-700">Diária R$:</label>
+                      <input 
+                        type="number" step="0.01"
+                        className="w-full p-3 bg-stone-50 border border-stone-200 rounded-xl outline-none focus:border-emerald-500 transition-all"
+                        value={clientForm.daily_rate}
+                        onChange={e => setClientForm({...clientForm, daily_rate: e.target.value})}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-sm font-semibold text-stone-700">Bairro:</label>
+                    <input 
+                      type="text"
+                      className="w-full p-3 bg-stone-50 border border-stone-200 rounded-xl outline-none focus:border-emerald-500 transition-all"
+                      value={clientForm.neighborhood}
+                      onChange={e => setClientForm({...clientForm, neighborhood: e.target.value})}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="space-y-1">
+                      <label className="text-sm font-semibold text-stone-700">Município:</label>
+                      <input 
+                        type="text"
+                        className="w-full p-3 bg-stone-50 border border-stone-200 rounded-xl outline-none focus:border-emerald-500 transition-all"
+                        value={clientForm.city}
+                        onChange={e => setClientForm({...clientForm, city: e.target.value})}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-sm font-semibold text-stone-700">Estado (UF):</label>
+                      <select 
+                        className="w-full p-3 bg-stone-50 border border-stone-200 rounded-xl outline-none focus:border-emerald-500 transition-all"
+                        value={clientForm.state}
+                        onChange={e => setClientForm({...clientForm, state: e.target.value})}
+                      >
+                        <option value="">Selecionar</option>
+                        <option value="AC">Acre</option>
+                        <option value="AL">Alagoas</option>
+                        <option value="AP">Amapá</option>
+                        <option value="AM">Amazonas</option>
+                        <option value="BA">Bahia</option>
+                        <option value="CE">Ceará</option>
+                        <option value="DF">Distrito Federal</option>
+                        <option value="ES">Espírito Santo</option>
+                        <option value="GO">Goiás</option>
+                        <option value="MA">Maranhão</option>
+                        <option value="MT">Mato Grosso</option>
+                        <option value="MS">Mato Grosso do Sul</option>
+                        <option value="MG">Minas Gerais</option>
+                        <option value="PA">Pará</option>
+                        <option value="PB">Paraíba</option>
+                        <option value="PR">Paraná</option>
+                        <option value="PE">Pernambuco</option>
+                        <option value="PI">Piauí</option>
+                        <option value="RJ">Rio de Janeiro</option>
+                        <option value="RN">Rio Grande do Norte</option>
+                        <option value="RS">Rio Grande do Sul</option>
+                        <option value="RO">Rondônia</option>
+                        <option value="RR">Roraima</option>
+                        <option value="SC">Santa Catarina</option>
+                        <option value="SP">São Paulo</option>
+                        <option value="SE">Sergipe</option>
+                        <option value="TO">Tocantins</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-6">
+                  <div className="bg-amber-50/50 border border-amber-200 p-6 rounded-2xl">
+                    <div className="flex items-center gap-2 text-amber-600 mb-4">
+                      <div className="w-6 h-6 bg-amber-500 rounded-full flex items-center justify-center text-white font-bold text-xs">!</div>
+                      <h3 className="font-bold">Dados Financeiros</h3>
+                    </div>
+                    <div className="space-y-4 text-sm text-stone-600 leading-relaxed">
+                      <p><strong>Tarifa:</strong> é o valor em reais cobrado por tonelada embarcada. Utilizada para gerar a fatura automaticamente. Portanto mantenha preenchido com valor atualizado.</p>
+                      <p><strong>Cadência:</strong> é a quantidade mínima exigida por embarque. Quando esse mínimo não é atingido é cobrado um adicional no faturamento.</p>
+                      <p><strong>Diária:</strong> taxa aplicada quando não ocorre o embarque por responsabilidade do cliente (como atrasos, falta de caminhões, problemas operacionais).</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-4">
+                <button 
+                  type="submit"
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-emerald-600/20"
+                >
+                  <Save size={20} />
+                  Salvar Registro
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
