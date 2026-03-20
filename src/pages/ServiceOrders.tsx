@@ -16,6 +16,12 @@ export const ServiceOrders: React.FC<OSProps> = ({ onClassify, onBill }) => {
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [editingOrder, setEditingOrder] = useState<any>(null);
   
+  // Estados para paginação e filtros
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  
   // Data for selects
   const [clients, setClients] = useState<any[]>([]);
   const [origins, setOrigins] = useState<any[]>([]);
@@ -59,7 +65,29 @@ export const ServiceOrders: React.FC<OSProps> = ({ onClassify, onBill }) => {
     loadSelectData();
   }, []);
 
-  const loadOrders = () => apiFetch('/api/service-orders').then(setOrders);
+  const loadOrders = () => {
+    apiFetch('/api/service-orders').then(setOrders);
+  };
+
+  // Lógica de filtros e paginação
+  const filteredOrders = orders.filter(order => {
+    const matchesSearch = order.os_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         order.client_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         order.product_name?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  // Paginação
+  const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedOrders = filteredOrders.slice(startIndex, endIndex);
+
+  // Resetar página quando filtros mudam
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, itemsPerPage]);
   
   const loadSelectData = () => {
     apiFetch('/api/clients').then(setClients).catch(console.error);
@@ -208,8 +236,38 @@ export const ServiceOrders: React.FC<OSProps> = ({ onClassify, onBill }) => {
           className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl flex items-center gap-2 font-medium transition-all shadow-lg shadow-emerald-600/10"
         >
           <Plus size={20} />
-          Nova O.S.
+          Nova Ordem
         </button>
+      </div>
+
+      {/* Filtros */}
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-stone-200">
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex-1">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" size={20} />
+              <input
+                type="text"
+                placeholder="Buscar por O.S., cliente ou produto..."
+                className="w-full pl-10 pr-4 py-3 bg-stone-50 border border-stone-200 rounded-xl outline-none focus:border-emerald-500"
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+              />
+            </div>
+          </div>
+          
+          <select
+            className="px-4 py-3 bg-stone-50 border border-stone-200 rounded-xl outline-none focus:border-emerald-500"
+            value={statusFilter}
+            onChange={e => setStatusFilter(e.target.value)}
+          >
+            <option value="all">Todos Status</option>
+            <option value="PENDING">Pendente</option>
+            <option value="IN_PROGRESS">Em Andamento</option>
+            <option value="FINISHED">Finalizada</option>
+            <option value="BILLED">Faturada</option>
+          </select>
+        </div>
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden">
@@ -225,7 +283,7 @@ export const ServiceOrders: React.FC<OSProps> = ({ onClassify, onBill }) => {
             </tr>
           </thead>
           <tbody className="divide-y divide-stone-100">
-            {orders.map(order => (
+            {paginatedOrders.map(order => (
               <tr key={order.id} className="hover:bg-stone-50 transition-colors">
                 <td className="px-6 py-4">
                   <p className="font-mono font-bold text-stone-800">{order.os_number}</p>
@@ -297,6 +355,53 @@ export const ServiceOrders: React.FC<OSProps> = ({ onClassify, onBill }) => {
           </tbody>
         </table>
       </div>
+
+      {/* Paginação */}
+      {filteredOrders.length > 0 && (
+        <div className="bg-white px-6 py-4 rounded-xl shadow-sm border border-stone-200">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-stone-500">
+                Mostrando {startIndex + 1} a {Math.min(endIndex, filteredOrders.length)} de {filteredOrders.length} resultados
+              </span>
+              
+              <select
+                className="px-3 py-2 bg-stone-50 border border-stone-200 rounded-lg text-sm"
+                value={itemsPerPage}
+                onChange={e => setItemsPerPage(parseInt(e.target.value))}
+              >
+                <option value={8}>8 por página</option>
+                <option value={10}>10 por página</option>
+                <option value={25}>25 por página</option>
+                <option value={50}>50 por página</option>
+                <option value={100}>100 por página</option>
+              </select>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-2 bg-stone-100 border border-stone-200 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                ← Anterior
+              </button>
+              
+              <span className="text-sm text-stone-500">
+                Página {currentPage} de {totalPages}
+              </span>
+              
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-2 bg-stone-100 border border-stone-200 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Próximo →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal Nova O.S. */}
       {showModal && (

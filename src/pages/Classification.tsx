@@ -15,7 +15,8 @@ import {
   AlertCircle,
   ClipboardCheck,
   Edit,
-  Download
+  Download,
+  Trash2
 } from 'lucide-react';
 import { apiFetch } from '../services/api';
 import { motion, AnimatePresence } from 'motion/react';
@@ -107,39 +108,42 @@ export const Classification = ({ osId: initialOsId, onBack }: ClassificationProp
     console.log('Dados do relatório:', report)
     
     try {
-      // Preencher o formulário com os dados do relatório
+      // Preencher o formulário com os dados do relatório usando os nomes corretos dos campos
       setFormData({
-        os_id: report.os_id || '',
-        classifier_id: report.classifier_id || '',
-        date: report.date || new Date().toISOString().split('T')[0],
+        os_id: report.os_id,
+        classifier_id: report.classifier_id,
+        date: report.date || '',
         license_plate: report.license_plate || '',
         weight_kg: report.weight_kg || '',
         carrier: report.carrier || '',
         invoice_url: report.invoice_url || '',
-        test_type: report.test_type || 'Convencional',
-        live_insects: report.live_insects || 'Não',
-        dead_insects: report.dead_insects || 'Não',
-        odor: report.odor || 'Não',
-        toxicity: report.toxicity || 'Não',
+        test_type: report.test_type || '',
+        live_insects: report.live_insects || '',
+        dead_insects: report.dead_insects || '',
+        odor: report.odor || '',
+        toxicity: report.toxicity || '',
         burnt_and_scorched: report.burnt_and_scorched || '',
         scorched: report.scorched || '',
         moldy: report.moldy || '',
         fermented: report.fermented || '',
         germinated: report.germinated || '',
-        damaged: report.damaged || '',
+        shriveled: report.shriveled || '',
+        damaged_total: report.damaged_total || '',
         immature: report.immature || '',
-        foreign_matter: report.foreign_matter || '',
-        fragments: report.fragments || '',
-        insect_damage: report.insect_damage || '',
+        humidity: report.humidity || '',
+        impurities: report.impurities || '',
+        greenish: report.greenish || '',
+        broken_crushed: report.broken_crushed || '',
+        observations: report.observations || '',
         final_classification: report.final_classification || ''
-      })
+      });
       
       // Abrir o modal para edição
       setIsModalOpen(true)
       setStep(1)
       
       // Armazenar o ID do relatório sendo editado
-      setEditingReportId(report.id)
+      setEditingReportId(report.id.toString())
       
       console.log('✅ Formulário preenchido para edição')
       
@@ -150,6 +154,27 @@ export const Classification = ({ osId: initialOsId, onBack }: ClassificationProp
     
     console.log('=== FIM DA EDIÇÃO ===')
   }
+
+  // Função para deletar laudo
+  const deleteReport = async (reportId: string) => {
+    if (!window.confirm('Tem certeza que deseja excluir este laudo? Esta ação não pode ser desfeita.')) {
+      return;
+    }
+
+    try {
+      await apiFetch(`/api/reports/${reportId}`, {
+        method: 'DELETE'
+      });
+      
+      // Recarregar a lista de laudos
+      fetchReports();
+      
+      alert('Laudo excluído com sucesso!');
+    } catch (error: any) {
+      console.error('Erro ao excluir laudo:', error);
+      alert('Erro ao excluir laudo: ' + (error.message || 'Erro desconhecido'));
+    }
+  };
   
   // Função para abrir modal de visualização de PDF
   const openPDFModal = (data: string, fileName: string) => {
@@ -168,7 +193,7 @@ export const Classification = ({ osId: initialOsId, onBack }: ClassificationProp
   const [formData, setFormData] = useState({
     os_id: initialOsId || '',
     classifier_id: '',
-    date: new Date().toISOString().split('T')[0],
+    date: '', // Campo vazio para forçar o usuário a selecionar a data
     license_plate: '',
     weight_kg: '',
     carrier: '',
@@ -190,7 +215,9 @@ export const Classification = ({ osId: initialOsId, onBack }: ClassificationProp
     impurities: '',
     greenish: '',
     broken_crushed: '',
-    observations: ''
+    observations: '',
+    final_classification: '', // Campo adicionado
+    discounts_json: '' // Campo adicionado
   });
 
   useEffect(() => {
@@ -203,6 +230,19 @@ export const Classification = ({ osId: initialOsId, onBack }: ClassificationProp
     setReports(data);
   };
 
+  // Check if there's an existing classification for the initialOsId
+  useEffect(() => {
+    // Only check for existing reports if we're in edit mode (modal auto-opened with initialOsId)
+    if (initialOsId && reports.length > 0 && isModalOpen) {
+      const existingReport = reports.find(report => report.os_id === initialOsId);
+      if (existingReport) {
+        // If there's an existing report, open it in edit mode
+        editReport(existingReport);
+        setEditingReportId(existingReport.id.toString());
+      }
+    }
+  }, [initialOsId, reports, isModalOpen]);
+
   const fetchInitialData = async () => {
     const [osData, userData] = await Promise.all([
       apiFetch('/api/service-orders'),
@@ -214,9 +254,61 @@ export const Classification = ({ osId: initialOsId, onBack }: ClassificationProp
 
   const handleSubmit = async () => {
     try {
+      // Calcular classificação final com base na umidade e impurezas
+      let finalClassification = "Tipo 1";
+      const humidity = parseFloat(formData.humidity) || 0;
+      const impurities = parseFloat(formData.impurities) || 0;
+      
+      if (humidity > 14 || impurities > 1) finalClassification = "Tipo 2";
+      if (humidity > 16 || impurities > 2) finalClassification = "Fora de Padrão";
+
+      // Calcular descontos
+      const discounts = {
+        humidity: humidity > 14 ? (humidity - 14) * 1.5 : 0,
+        impurities: impurities > 1 ? (impurities - 1) : 0
+      };
+
+      // Preparar dados completos para envio - permitir valores vazios
+      const completeFormData = {
+        os_id: formData.os_id ? parseInt(formData.os_id) : null,
+        classifier_id: formData.classifier_id ? parseInt(formData.classifier_id) : null,
+        date: formData.date || new Date().toISOString().split('T')[0], // Data atual se for undefined
+        license_plate: formData.license_plate || '',
+        weight_kg: formData.weight_kg ? parseFloat(formData.weight_kg) : null,
+        carrier: formData.carrier || '',
+        invoice_url: formData.invoice_url || '',
+        test_type: formData.test_type || '',
+        live_insects: formData.live_insects || '',
+        dead_insects: formData.dead_insects || '',
+        odor: formData.odor || '',
+        toxicity: formData.toxicity || '',
+        burnt_and_scorched: formData.burnt_and_scorched ? parseFloat(formData.burnt_and_scorched) : null,
+        scorched: formData.scorched ? parseFloat(formData.scorched) : null,
+        moldy: formData.moldy ? parseFloat(formData.moldy) : null,
+        fermented: formData.fermented ? parseFloat(formData.fermented) : null,
+        germinated: formData.germinated ? parseFloat(formData.germinated) : null,
+        shriveled: formData.shriveled ? parseFloat(formData.shriveled) : null,
+        damaged_total: formData.damaged_total ? parseFloat(formData.damaged_total) : null,
+        immature: formData.immature ? parseFloat(formData.immature) : null,
+        humidity: formData.humidity ? parseFloat(formData.humidity) : null,
+        impurities: formData.impurities ? parseFloat(formData.impurities) : null,
+        greenish: formData.greenish ? parseFloat(formData.greenish) : null,
+        broken_crushed: formData.broken_crushed ? parseFloat(formData.broken_crushed) : null,
+        observations: formData.observations || '',
+        final_classification: finalClassification || '',
+        discounts_json: discounts ? JSON.stringify(discounts) : '{}',
+        signature_date: new Date().toISOString()
+      };
+
+      console.log('📝 Frontend - Campos enviados:', Object.keys(completeFormData));
+      console.log('📝 Frontend - Total de campos:', Object.keys(completeFormData).length);
+      console.log('📝 Frontend - Dados completos:', completeFormData);
+      console.log('📝 Frontend - Editando report ID:', editingReportId);
+
+      // Use POST for both create and update - backend handles the logic
       await apiFetch('/api/classification', {
         method: 'POST',
-        body: JSON.stringify(formData)
+        body: JSON.stringify(completeFormData)
       });
       setIsModalOpen(false);
       fetchReports();
@@ -248,7 +340,37 @@ export const Classification = ({ osId: initialOsId, onBack }: ClassificationProp
         </div>
         <button 
           onClick={() => {
-            setFormData({ ...formData, os_id: initialOsId || '' });
+            // Reset form to initial empty state when creating new classification
+            setFormData({
+              os_id: initialOsId || '',
+              classifier_id: '',
+              date: '',
+              license_plate: '',
+              weight_kg: '',
+              carrier: '',
+              invoice_url: '',
+              test_type: '',
+              live_insects: '',
+              dead_insects: '',
+              odor: '',
+              toxicity: '',
+              burnt_and_scorched: '',
+              scorched: '',
+              moldy: '',
+              fermented: '',
+              germinated: '',
+              shriveled: '',
+              damaged_total: '',
+              immature: '',
+              humidity: '',
+              impurities: '',
+              greenish: '',
+              broken_crushed: '',
+              observations: '',
+              final_classification: '',
+              discounts_json: ''
+            });
+            setEditingReportId(null);
             setIsModalOpen(true);
             setStep(1);
           }}
@@ -317,6 +439,13 @@ export const Classification = ({ osId: initialOsId, onBack }: ClassificationProp
                         title="Baixar PDF do Laudo"
                       >
                         <Download size={18} />
+                      </button>
+                      <button 
+                        onClick={() => deleteReport(report.id)}
+                        className="p-2 text-stone-400 hover:text-red-600 transition-colors"
+                        title="Excluir Laudo"
+                      >
+                        <Trash2 size={18} />
                       </button>
                     </div>
                   </td>

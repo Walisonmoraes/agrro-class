@@ -37,8 +37,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, current, onNavigate })
     { id: 'embarkation', label: 'Origens / Fazendas', icon: MapPin, roles: ['ADMIN'] },
     { id: 'destinations', label: 'Destinos', icon: Navigation, roles: ['ADMIN'] },
     { id: 'products', label: 'Produtos', icon: Package, roles: ['ADMIN'] },
-    { id: 'billing_page', label: 'Faturamento', icon: Receipt, roles: ['ADMIN', 'FINANCE'] },
-    { id: 'faturas', label: 'Faturas', icon: CreditCard, roles: ['ADMIN', 'FINANCE'] },
+    { id: 'billing', label: 'Faturamento', icon: Receipt, roles: ['ADMIN', 'FINANCE'] },
   ];
 
   return (

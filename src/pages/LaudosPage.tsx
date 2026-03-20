@@ -3,58 +3,53 @@ import { Search, Filter, Plus, FileText } from 'lucide-react'
 import LaudoCard from '../components/LaudoCard'
 import PDFButton from '../components/PDFButton'
 import { LaudoData } from '../services/pdfService'
-
-// Dados de exemplo
-const laudosExample: LaudoData[] = [
-  {
-    laudo_number: 'LAUDO/2024/001',
-    classification_date: '2024-03-15',
-    client_name: 'Fazenda Boa Vista',
-    product_name: 'Soja',
-    origin_name: 'Fazenda Boa Vista - Ribeirão Preto/SP',
-    destination_name: 'Porto de Santos',
-    embarkation_point_name: 'Terminal 1 - Santos',
-    sample_number: 1,
-    bag_number: 150,
-    weight: 60.5,
-    classification_result: {
-      umidade: '12.5%',
-      impurezas: '1.2%',
-      ardidos: '0.8%',
-      classificacao: 'Tipo 1'
-    },
-    observations: 'Amostra coletada conforme padrão ABNT',
-    classifier_name: 'João Silva',
-    status: 'APPROVED'
-  },
-  {
-    laudo_number: 'LAUDO/2024/002',
-    classification_date: '2024-03-14',
-    client_name: 'Agro Norte S/A',
-    product_name: 'Milho',
-    origin_name: 'Agro Norte - Goiânia/GO',
-    destination_name: 'Porto de Paranaguá',
-    embarkation_point_name: 'Terminal 2 - Paranaguá',
-    sample_number: 2,
-    bag_number: 200,
-    weight: 58.0,
-    classification_result: {
-      umidade: '13.2%',
-      impurezas: '2.1%',
-      ardidos: '1.5%',
-      classificacao: 'Tipo 2'
-    },
-    observations: 'Apresentou alta umidade, recomendado secagem',
-    classifier_name: 'Maria Santos',
-    status: 'PENDING'
-  }
-]
+import { apiFetch } from '../services/api'
 
 export const LaudosPage: React.FC = () => {
-  const [laudos, setLaudos] = useState<LaudoData[]>(laudosExample)
+  const [laudos, setLaudos] = useState<LaudoData[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    loadLaudos()
+  }, [])
+
+  const loadLaudos = async () => {
+    try {
+      setIsLoading(true)
+      const reports = await apiFetch('/api/classification')
+      
+      // Transformar dados do banco para o formato esperado pelo componente
+      const formattedLaudos: LaudoData[] = reports.map((report: any) => ({
+        laudo_number: `LAUDO/2024/${report.id.toString().padStart(3, '0')}`,
+        classification_date: report.date || new Date().toISOString().split('T')[0],
+        client_name: report.client_name || 'Cliente não informado',
+        product_name: report.product_name || 'Produto não informado',
+        origin_name: 'Origem não informada',
+        destination_name: 'Destino não informado',
+        embarkation_point_name: 'Embarque não informado',
+        sample_number: report.sample_number || 1,
+        bag_number: report.bag_number || 100,
+        weight: report.weight_kg || 60.0,
+        classification_result: {
+          umidade: report.humidity ? `${report.humidity}%` : '12.5%',
+          impurezas: report.impurities ? `${report.impurities}%` : '1.2%',
+          ardidos: report.damaged_total ? `${report.damaged_total}%` : '0.8%',
+          classificacao: report.final_classification || 'Tipo 1'
+        },
+        observations: report.observations || 'Laudo emitido conforme análise técnica',
+        classifier_name: report.classifier_name || 'Classificador não informado',
+        status: 'APPROVED' // Todos os laudos no banco estão aprovados
+      }))
+      
+      setLaudos(formattedLaudos)
+    } catch (error) {
+      console.error('Erro ao carregar laudos:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const filteredLaudos = laudos.filter(laudo => {
     const matchesSearch = laudo.laudo_number.toLowerCase().includes(searchTerm.toLowerCase()) ||

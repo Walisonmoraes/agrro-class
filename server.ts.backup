@@ -149,8 +149,8 @@ try {
 
 // Migration: Add created_at column to billing if it doesn't exist
 try {
-  const result = db.prepare("ALTER TABLE billing ADD COLUMN created_at TEXT DEFAULT CURRENT_TIMESTAMP").run();
-  console.log('Coluna created_at adicionada à tabela billing:', result);
+  db.prepare("ALTER TABLE billing ADD COLUMN created_at TEXT DEFAULT CURRENT_TIMESTAMP").run();
+  console.log('Coluna created_at adicionada à tabela billing');
 } catch (e) {
   console.log('Coluna created_at já existe na tabela billing:', e.message);
 }
@@ -420,292 +420,176 @@ async function startServer() {
     res.json({ token, user: { id: user.id, name: user.name, role: user.role } });
   });
 
-  // Dashboard Stats - Sem autenticação (temporário)
-  app.get("/api/dashboard/stats-noauth", (req, res) => {
-    console.log('🚀 Endpoint /api/dashboard/stats-noauth');
-    
-    try {
-      console.log('🔍 Buscando estatísticas do dashboard ===');
-      const { range = '30d' } = req.query;
-      
-      console.log('📊 Query 1: Ordens abertas');
-      const openOS = db.prepare("SELECT COUNT(*) as count FROM service_orders WHERE status != 'BILLED'").get() as any;
-      console.log('✅ openOS:', openOS);
-      
-      console.log('📊 Query 2: Ordens totais');
-      const totalOS = db.prepare("SELECT COUNT(*) as count FROM service_orders").get() as any;
-      console.log('✅ totalOS:', totalOS);
-      
-      console.log('📊 Query 3: Faturamento mensal');
-      const monthlyBilling = db.prepare("SELECT COALESCE(SUM(total_amount), 0) as total FROM billing").get() as any;
-      console.log('✅ monthlyBilling:', monthlyBilling);
-      
-      console.log('📊 Query 4: Total de faturas');
-      const totalInvoices = db.prepare("SELECT COUNT(*) as count FROM billing").get() as any;
-      console.log('✅ totalInvoices:', totalInvoices);
-      
-      console.log('📊 Query 5: Classificações totais');
-      const totalClassifications = db.prepare("SELECT COUNT(*) as count FROM classification_reports").get() as any;
-      console.log('✅ totalClassifications:', totalClassifications);
-      
-      console.log('� Query 6: Volume por produto');
-      const volumeByProduct = db.prepare(`
-        SELECT p.name, SUM(so.quantity) as volume 
-        FROM service_orders so 
-        JOIN products p ON so.product_id = p.id 
-        WHERE so.date >= date('now', '-${range === '7d' ? '7' : range === '90d' ? '90' : range === '1y' ? '365' : '30'} days')
-        GROUP BY p.name
-        ORDER BY volume DESC
-      `).all();
-      console.log('✅ volumeByProduct:', volumeByProduct);
-      
-      console.log('📊 Query 7: Volume total');
-      const totalVolume = db.prepare(`
-        SELECT COALESCE(SUM(quantity), 0) as total 
-        FROM service_orders 
-        WHERE date >= date('now', '-${range === '7d' ? '7' : range === '90d' ? '90' : range === '1y' ? '365' : '30'} days')
-      `).get() as any;
-      console.log('✅ totalVolume:', totalVolume);
-      
-      console.log('📊 Query 8: Tendência diária');
-      const dailyTrend = db.prepare(`
-        SELECT 
-          date(cr.date) as date,
-          COUNT(cr.id) as classifications,
-          COALESCE(AVG(so.quantity), 0) as volume
-        FROM classification_reports cr
-        JOIN service_orders so ON cr.os_id = so.id
-        WHERE cr.date >= date('now', '-14 days')
-        GROUP BY date(cr.date)
-        ORDER BY date(cr.date)
-      `).all();
-      console.log('✅ dailyTrend:', dailyTrend);
-      
-      console.log('📊 Query 9: Relatórios recentes');
-      const recentReports = db.prepare(`
-        SELECT 
-          cr.id,
-          cr.date as created_at,
-          c.name as client_name,
-          p.name as product_name,
-          cr.final_classification,
-          CASE 
-            WHEN cr.final_classification IS NOT NULL THEN 'completed'
-            WHEN so.status = 'ANALYZING' THEN 'pending'
-            ELSE 'error'
-          END as status,
-          u.name as classifier_name
-        FROM classification_reports cr
-        JOIN service_orders so ON cr.os_id = so.id
-        JOIN clients c ON so.client_id = c.id
-        JOIN products p ON so.product_id = p.id
-        LEFT JOIN users u ON cr.classifier_id = u.id
-        ORDER BY cr.date DESC
-        LIMIT 10
-      `).all();
-      console.log('✅ recentReports:', recentReports);
-      
-      console.log('�📦 Montando objeto stats');
-      const stats = {
-        openOS: openOS.count,
-        totalOS: totalOS.count,
-        monthlyBilling: monthlyBilling.total || 0,
-        totalInvoices: totalInvoices.count,
-        totalClassifications: totalClassifications.count,
-        billingPercentage: Math.round((monthlyBilling.total / 50000) * 100),
-        osGrowth: 0,
-        volumeByProduct: volumeByProduct,
-        totalVolume: totalVolume.total || 0,
-        volumeGrowth: 0,
-        avgProcessingTime: "2.5",
-        efficiency: 85,
-        activeClassifiers: 1,
-        totalClassifiers: 1,
-        todayTransports: 0,
-        completedTransports: totalOS.count,
-        avgQuality: "8.7",
-        approvalRate: 95,
-        pendingAlerts: 0,
-        criticalIssues: 0,
-        dailyTrend: dailyTrend,
-        recentReports: recentReports
-      };
-      
-      console.log('📊 Estatísticas do dashboard:', stats);
-      console.log('🏁 Fim das estatísticas do dashboard ===');
-      
-      console.log('📤 Enviando resposta JSON');
-      res.json(stats);
-      console.log('✅ Resposta enviada com sucesso');
-    } catch (error: any) {
-      console.error('❌ Erro ao carregar estatísticas do dashboard:', error);
-      console.error('📋 Stack trace:', error.stack);
-      console.log('📤 Enviando erro 500');
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // Dashboard Stats - Teste sem autenticação
-  app.get("/api/dashboard/stats-test", (req, res) => {
-    console.log('🧪 Endpoint de teste sem autenticação');
-    
-    try {
-      const stats = {
-        openOS: 5,
-        totalOS: 10,
-        monthlyBilling: 15000,
-        totalInvoices: 8,
-        totalClassifications: 12,
-        billingPercentage: 30,
-        osGrowth: 0,
-        volumeByProduct: [],
-        totalVolume: 0,
-        volumeGrowth: 0,
-        avgProcessingTime: "2.5",
-        efficiency: 85,
-        activeClassifiers: 1,
-        totalClassifiers: 1,
-        todayTransports: 0,
-        completedTransports: 10,
-        avgQuality: "8.7",
-        approvalRate: 95,
-        pendingAlerts: 0,
-        criticalIssues: 0,
-        dailyTrend: [],
-        recentReports: []
-      };
-      
-      console.log('📊 Estatísticas de teste:', stats);
-      res.json(stats);
-    } catch (error: any) {
-      console.error('❌ Erro no endpoint de teste:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // Dashboard Stats - Simplificado
+  // Dashboard Stats - Enhanced
   app.get("/api/dashboard/stats", authenticateToken, (req, res) => {
-    console.log('🚀 Iniciando endpoint /api/dashboard/stats');
+    const { range = '30d' } = req.query;
     
-    try {
-      console.log('🔍 Buscando estatísticas do dashboard ===');
-      const { range = '30d' } = req.query;
+    // Base queries
+    const openOS = db.prepare("SELECT COUNT(*) as count FROM service_orders WHERE status != 'BILLED'").get() as any;
+    const totalOS = db.prepare("SELECT COUNT(*) as count FROM service_orders WHERE strftime('%m', date) = strftime('%m', 'now')").get() as any;
+    
+    // Billing metrics
+    const monthlyBilling = db.prepare("SELECT COALESCE(SUM(total_amount), 0) as total FROM billing WHERE strftime('%m', payment_date) = strftime('%m', 'now')").get() as any;
+    const lastMonthBilling = db.prepare("SELECT COALESCE(SUM(total_amount), 0) as total FROM billing WHERE strftime('%m', payment_date) = strftime('%m', date('now', '-1 month')").get() as any;
+    const billingGrowth = lastMonthBilling.total > 0 ? ((monthlyBilling.total - lastMonthBilling.total) / lastMonthBilling.total * 100) : 0;
+    
+    // Volume by product
+    const volumeByProduct = db.prepare(`
+      SELECT p.name, SUM(so.quantity) as volume 
+      FROM service_orders so 
+      JOIN products p ON so.product_id = p.id 
+      WHERE so.date >= date('now', '-${range === '7d' ? '7' : range === '90d' ? '90' : range === '1y' ? '365' : '30'} days')
+      GROUP BY p.name
+      ORDER BY volume DESC
+    `).all();
+    
+    // Total volume
+    const totalVolume = db.prepare(`
+      SELECT COALESCE(SUM(quantity), 0) as total 
+      FROM service_orders 
+      WHERE date >= date('now', '-${range === '7d' ? '7' : range === '90d' ? '90' : range === '1y' ? '365' : '30'} days')
+    `).get() as any;
+    
+    // Last month volume for growth calculation
+    const lastMonthVolume = db.prepare(`
+      SELECT COALESCE(SUM(quantity), 0) as total 
+      FROM service_orders 
+      WHERE date >= date('now', '-${range === '7d' ? '14' : range === '90d' ? '120' : range === '1y' ? '395' : '60'} days') 
+      AND date < date('now', '-${range === '7d' ? '7' : range === '90d' ? '90' : range === '1y' ? '365' : '30'} days')
+    `).get() as any;
+    const volumeGrowth = lastMonthVolume.total > 0 ? ((totalVolume.total - lastMonthVolume.total) / lastMonthVolume.total * 100) : 0;
+    
+    // Classification metrics
+    const totalClassifications = db.prepare("SELECT COUNT(*) as count FROM classification_reports").get() as any;
+    const avgProcessingTime = db.prepare(`
+      SELECT AVG(
+        (julianday(cr.date) - julianday(so.date)) * 24
+      ) as avg_time 
+      FROM classification_reports cr 
+      JOIN service_orders so ON cr.os_id = so.id
+      WHERE cr.date IS NOT NULL
+    `).get() as any;
+    
+    // Active classifiers
+    const activeClassifiers = db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'CLASSIFIER' AND id IN (SELECT DISTINCT classifier_id FROM service_orders WHERE date >= date('now', '-30 days'))").get() as any;
+    const totalClassifiers = db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'CLASSIFIER'").get() as any;
+    
+    // Today's transports
+    const todayTransports = db.prepare("SELECT COUNT(*) as count FROM service_orders WHERE date = date('now')").get() as any;
+    const completedTransports = db.prepare("SELECT COUNT(*) as count FROM service_orders WHERE date = date('now') AND status = 'FINISHED'").get() as any;
+    
+    // Quality metrics
+    const avgQuality = db.prepare(`
+      SELECT AVG(
+        CASE 
+          WHEN cr.final_classification = 'Tipo 1' THEN 10
+          WHEN cr.final_classification = 'Tipo 2' THEN 8
+          WHEN cr.final_classification = 'Tipo 3' THEN 6
+          ELSE 4
+        END
+      ) as avg_quality 
+      FROM classification_reports cr
+      WHERE cr.date >= date('now', '-30 days')
+    `).get() as any;
+    
+    // Approval rate
+    const approvedClassifications = db.prepare("SELECT COUNT(*) as count FROM classification_reports WHERE final_classification IN ('Tipo 1', 'Tipo 2', 'Tipo 3')").get() as any;
+    const approvalRate = totalClassifications.count > 0 ? (approvedClassifications.count / totalClassifications.count * 100) : 0;
+    
+    // Daily trend for line chart
+    const dailyTrend = db.prepare(`
+      SELECT 
+        date(so.date) as date,
+        COUNT(cr.id) as classifications,
+        COALESCE(SUM(so.quantity), 0) as volume
+      FROM service_orders so 
+      LEFT JOIN classification_reports cr ON so.id = cr.os_id
+      WHERE so.date >= date('now', '-14 days')
+      GROUP BY date(so.date)
+      ORDER BY date(so.date)
+    `).all();
+    
+    // Recent reports for table
+    const recentReports = db.prepare(`
+      SELECT 
+        cr.id,
+        cr.date as created_at,
+        c.name as client_name,
+        p.name as product_name,
+        cr.final_classification,
+        CASE 
+          WHEN cr.final_classification IS NOT NULL THEN 'completed'
+          WHEN so.status = 'ANALYZING' THEN 'pending'
+          ELSE 'error'
+        END as status,
+        u.name as classifier_name
+      FROM classification_reports cr
+      JOIN service_orders so ON cr.os_id = so.id
+      JOIN clients c ON so.client_id = c.id
+      JOIN products p ON so.product_id = p.id
+      LEFT JOIN users u ON cr.classifier_id = u.id
+      ORDER BY cr.date DESC
+      LIMIT 10
+    `).all();
+    
+    // Alerts and issues
+    const pendingAlerts = db.prepare(`
+      SELECT COUNT(*) as count 
+      FROM service_orders so 
+      WHERE so.status = 'ANALYZING' 
+      AND so.date < date('now', '-2 days')
+    `).get() as any;
+    
+    const criticalIssues = db.prepare(`
+      SELECT COUNT(*) as count 
+      FROM service_orders so 
+      WHERE so.status = 'OPEN' 
+      AND so.date < date('now', '-7 days')
+    `).get() as any;
+    
+    // Efficiency calculation
+    const efficiency = activeClassifiers.count > 0 ? Math.min(95, (totalClassifications.count / activeClassifiers.count / 30 * 100)) : 0;
+    
+    res.json({
+      // Core metrics
+      openOS: openOS.count,
+      totalOS: totalOS.count,
+      osGrowth: Math.round(billingGrowth),
       
-      console.log('📊 Query 1: Ordens abertas');
-      const openOS = db.prepare("SELECT COUNT(*) as count FROM service_orders WHERE status != 'BILLED'").get() as any;
-      console.log('✅ openOS:', openOS);
+      // Financial
+      monthlyBilling: monthlyBilling.total || 0,
+      billingPercentage: Math.round((monthlyBilling.total / 50000) * 100), // Assuming 50k as target
       
-      console.log('📊 Query 2: Ordens totais');
-      const totalOS = db.prepare("SELECT COUNT(*) as count FROM service_orders").get() as any;
-      console.log('✅ totalOS:', totalOS);
+      // Volume
+      volumeByProduct,
+      totalVolume: totalVolume.total || 0,
+      volumeGrowth: Math.round(volumeGrowth),
+      totalClassifications: totalClassifications.count,
       
-      console.log('📊 Query 3: Faturamento mensal');
-      const monthlyBilling = db.prepare("SELECT COALESCE(SUM(total_amount), 0) as total FROM billing").get() as any;
-      console.log('✅ monthlyBilling:', monthlyBilling);
+      // Efficiency
+      avgProcessingTime: (avgProcessingTime.avg_time || 2.5).toFixed(1),
+      efficiency: Math.round(efficiency),
       
-      console.log('📊 Query 4: Total de faturas');
-      const totalInvoices = db.prepare("SELECT COUNT(*) as count FROM billing").get() as any;
-      console.log('✅ totalInvoices:', totalInvoices);
+      // Team
+      activeClassifiers: activeClassifiers.count,
+      totalClassifiers: totalClassifiers.count,
       
-      console.log('📊 Query 5: Classificações totais');
-      const totalClassifications = db.prepare("SELECT COUNT(*) as count FROM classification_reports").get() as any;
-      console.log('✅ totalClassifications:', totalClassifications);
+      // Operations
+      todayTransports: todayTransports.count,
+      completedTransports: completedTransports.count,
       
-      console.log('� Query 6: Volume por produto');
-      const volumeByProduct = db.prepare(`
-        SELECT p.name, SUM(so.quantity) as volume 
-        FROM service_orders so 
-        JOIN products p ON so.product_id = p.id 
-        WHERE so.date >= date('now', '-${range === '7d' ? '7' : range === '90d' ? '90' : range === '1y' ? '365' : '30'} days')
-        GROUP BY p.name
-        ORDER BY volume DESC
-      `).all();
-      console.log('✅ volumeByProduct:', volumeByProduct);
+      // Quality
+      avgQuality: (avgQuality.avg_quality || 8.7).toFixed(1),
+      approvalRate: Math.round(approvalRate),
       
-      console.log('📊 Query 7: Volume total');
-      const totalVolume = db.prepare(`
-        SELECT COALESCE(SUM(quantity), 0) as total 
-        FROM service_orders 
-        WHERE date >= date('now', '-${range === '7d' ? '7' : range === '90d' ? '90' : range === '1y' ? '365' : '30'} days')
-      `).get() as any;
-      console.log('✅ totalVolume:', totalVolume);
+      // Alerts
+      pendingAlerts: pendingAlerts.count,
+      criticalIssues: criticalIssues.count,
       
-      console.log('📊 Query 8: Tendência diária');
-      const dailyTrend = db.prepare(`
-        SELECT 
-          date(cr.date) as date,
-          COUNT(cr.id) as classifications,
-          COALESCE(AVG(so.quantity), 0) as volume
-        FROM classification_reports cr
-        JOIN service_orders so ON cr.os_id = so.id
-        WHERE cr.date >= date('now', '-14 days')
-        GROUP BY date(cr.date)
-        ORDER BY date(cr.date)
-      `).all();
-      console.log('✅ dailyTrend:', dailyTrend);
-      
-      console.log('📊 Query 9: Relatórios recentes');
-      const recentReports = db.prepare(`
-        SELECT 
-          cr.id,
-          cr.date as created_at,
-          c.name as client_name,
-          p.name as product_name,
-          cr.final_classification,
-          CASE 
-            WHEN cr.final_classification IS NOT NULL THEN 'completed'
-            WHEN so.status = 'ANALYZING' THEN 'pending'
-            ELSE 'error'
-          END as status,
-          u.name as classifier_name
-        FROM classification_reports cr
-        JOIN service_orders so ON cr.os_id = so.id
-        JOIN clients c ON so.client_id = c.id
-        JOIN products p ON so.product_id = p.id
-        LEFT JOIN users u ON cr.classifier_id = u.id
-        ORDER BY cr.date DESC
-        LIMIT 10
-      `).all();
-      console.log('✅ recentReports:', recentReports);
-      
-      console.log('�📦 Montando objeto stats');
-      const stats = {
-        openOS: openOS.count,
-        totalOS: totalOS.count,
-        monthlyBilling: monthlyBilling.total || 0,
-        totalInvoices: totalInvoices.count,
-        totalClassifications: totalClassifications.count,
-        billingPercentage: Math.round((monthlyBilling.total / 50000) * 100),
-        osGrowth: 0,
-        volumeByProduct: volumeByProduct,
-        totalVolume: totalVolume.total || 0,
-        volumeGrowth: 0,
-        avgProcessingTime: "2.5",
-        efficiency: 85,
-        activeClassifiers: 1,
-        totalClassifiers: 1,
-        todayTransports: 0,
-        completedTransports: totalOS.count,
-        avgQuality: "8.7",
-        approvalRate: 95,
-        pendingAlerts: 0,
-        criticalIssues: 0,
-        dailyTrend: dailyTrend,
-        recentReports: recentReports
-      };
-      
-      console.log('📊 Estatísticas do dashboard:', stats);
-      console.log('🏁 Fim das estatísticas do dashboard ===');
-      
-      console.log('📤 Enviando resposta JSON');
-      res.json(stats);
-      console.log('✅ Resposta enviada com sucesso');
-    } catch (error: any) {
-      console.error('❌ Erro ao carregar estatísticas do dashboard:', error);
-      console.error('📋 Stack trace:', error.stack);
-      console.log('📤 Enviando erro 500');
-      res.status(500).json({ error: error.message });
-    }
+      // Charts data
+      dailyTrend,
+      recentReports
+    });
   });
 
   // Users / Classifiers
@@ -1050,21 +934,52 @@ async function startServer() {
       const result = db.prepare("DELETE FROM service_orders WHERE id = ?").run(id);
       
       if (result.changes === 0) {
-        return res.status(404).json({ error: "Ordem de Serviço não encontrada" });
-      }
+  
+  try {
+    const result = db.prepare(`
+      UPDATE service_orders 
+      SET client_id = ?, origin_id = ?, embarkation_id = ?, destination_id = ?, product_id = ?,
+          contract_number = ?, lot_weight = ?, producer_name = ?, quantity = ?, unit = ?, classifier_id = ?
+      WHERE id = ?
+    `).run(
+      client_id, origin_id, embarkation_id, destination_id, product_id,
+      contract_number, lot_weight, producer_name, quantity, unit, classifier_id, id
+    );
+    
+    if (result.changes === 0) {
+      return res.status(404).json({ error: "Ordem de Serviço não encontrada" });
+    try {
+      console.log('Carregando estatísticas de faturamento...');
       
-      res.json({ success: true });
-    } catch (error: any) {
-      console.error('Erro ao excluir OS:', error);
-      res.status(500).json({ error: "Erro interno ao excluir Ordem de Serviço: " + error.message });
+      const totalBilled = db.prepare("SELECT COALESCE(SUM(total_amount), 0) as total FROM billing").get() as any;
+      const paidAmount = db.prepare("SELECT COALESCE(SUM(total_amount), 0) as total FROM billing WHERE status = 'PAID'").get() as any;
+      const pendingAmount = db.prepare("SELECT COALESCE(SUM(total_amount), 0) as total FROM billing WHERE status = 'PENDING'").get() as any;
+      const totalInvoices = db.prepare("SELECT COUNT(*) as count FROM billing").get() as any;
+      const pendingInvoices = db.prepare("SELECT COUNT(*) as count FROM billing WHERE status = 'PENDING'").get() as any;
+      
+      console.log('Estatísticas básicas calculadas:', { totalBilled, paidAmount, pendingAmount });
+      
+      // Simplificar - não usar cálculo de crescimento mensal por enquanto
+      const stats = {
+        totalBilled: totalBilled.total || 0,
+        paidAmount: paidAmount.total || 0,
+        pendingAmount: pendingAmount.total || 0,
+        totalInvoices: totalInvoices.count || 0,
+        pendingInvoices: pendingInvoices.count || 0,
+        monthlyGrowth: 0 // Temporariamente desabilitado
+      };
+      
+      console.log('Estatísticas finais:', stats);
+      res.json(stats);
+    } catch (error) {
+      console.error('Erro ao carregar estatísticas:', error);
+      res.status(500).json({ error: 'Erro interno ao carregar estatísticas: ' + error.message });
     }
   });
 
-  // Billing endpoints for management page
+  // Billing list
   app.get("/api/billing/list", authenticateToken, (req, res) => {
     try {
-      console.log('=== Buscando lista de faturas ===');
-      
       const billings = db.prepare(`
         SELECT 
           b.*,
@@ -1080,20 +995,17 @@ async function startServer() {
         ORDER BY b.id DESC
       `).all();
       
-      console.log('Faturas encontradas:', billings.length);
-      console.log('Dados:', billings);
-      
+      console.log('Billings encontrados:', billings.length);
       res.json(billings);
     } catch (error) {
-      console.error('Erro ao buscar faturas:', error);
-      console.error('Stack trace:', error.stack);
-      res.status(500).json({ error: 'Erro interno ao buscar faturas: ' + error.message });
+      console.error('Erro ao carregar lista de faturas:', error);
+      res.status(500).json({ error: 'Erro ao carregar faturas: ' + error.message });
     }
   });
 
   app.get("/api/billing/stats", authenticateToken, (req, res) => {
     try {
-      console.log('=== Buscando estatísticas de faturamento ===');
+      console.log('Carregando estatísticas de faturamento...');
       
       const totalBilled = db.prepare("SELECT COALESCE(SUM(total_amount), 0) as total FROM billing").get() as any;
       const paidAmount = db.prepare("SELECT COALESCE(SUM(total_amount), 0) as total FROM billing WHERE status = 'PAID'").get() as any;
@@ -1101,13 +1013,7 @@ async function startServer() {
       const totalInvoices = db.prepare("SELECT COUNT(*) as count FROM billing").get() as any;
       const pendingInvoices = db.prepare("SELECT COUNT(*) as count FROM billing WHERE status = 'PENDING'").get() as any;
       
-      console.log('Dados brutos do banco:', {
-        totalBilled,
-        paidAmount, 
-        pendingAmount,
-        totalInvoices,
-        pendingInvoices
-      });
+      console.log('Estatísticas básicas calculadas:', { totalBilled, paidAmount, pendingAmount });
       
       // Simplificar - não usar cálculo de crescimento mensal por enquanto
       const stats = {
@@ -1120,12 +1026,10 @@ async function startServer() {
       };
       
       console.log('Estatísticas finais:', stats);
-      console.log('=== Fim das estatísticas ===');
-      
       res.json(stats);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Erro ao carregar estatísticas:', error);
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: 'Erro interno ao carregar estatísticas: ' + error.message });
     }
   });
 
@@ -1191,40 +1095,18 @@ async function startServer() {
   });
 
   app.post("/api/classification", authenticateToken, (req, res) => {
-    console.error('=== NEW ENDPOINT CALLED ===');
-    console.error('=== NEW ENDPOINT CALLED ===');
-    console.error('=== NEW ENDPOINT CALLED ===');
-    
-    console.log('=== DEBUG CLASSIFICATION ===');
-    console.log('Dados recebidos:', Object.keys(req.body));
-    console.log('Total de campos:', Object.keys(req.body).length);
-    console.log('Dados completos:', JSON.stringify(req.body, null, 2));
-    
     const { 
       os_id, classifier_id, date, license_plate, weight_kg, carrier, invoice_url,
       test_type, live_insects, dead_insects, odor, toxicity,
       burnt_and_scorched, scorched, moldy, fermented, germinated, shriveled,
       damaged_total, immature, humidity, impurities, greenish, broken_crushed,
-      observations, final_classification: frontendClassification, discounts_json: frontendDiscounts,
-      signature_date: frontendSignatureDate
+      observations
     } = req.body;
     
-    console.log('=== VALORES EXTRAÍDOS ===');
-    console.log('os_id:', os_id);
-    console.log('classifier_id:', classifier_id);
-    console.log('date:', date);
-    console.log('signature_date:', frontendSignatureDate);
-    
-    // Usar data atual se não for enviada
-    const classificationDate = date || new Date().toISOString().split('T')[0];
-    const signatureDate = new Date().toISOString();
-    
-    console.log('📝 Salvando laudo com data:', classificationDate);
-    
     // Simple business logic for classification
-    let calculatedClassification = "Tipo 1";
-    if (humidity > 14 || impurities > 1) calculatedClassification = "Tipo 2";
-    if (humidity > 16 || impurities > 2) calculatedClassification = "Fora de Padrão";
+    let final_classification = "Tipo 1";
+    if (humidity > 14 || impurities > 1) final_classification = "Tipo 2";
+    if (humidity > 16 || impurities > 2) final_classification = "Fora de Padrão";
 
     const discounts = {
       humidity: humidity > 14 ? (humidity - 14) * 1.5 : 0,
@@ -1232,77 +1114,28 @@ async function startServer() {
     };
 
     try {
-      console.log('=== FORCING UPDATE FOR OS_ID:', os_id);
-      
-      // Forçar UPDATE direto (sem verificação)
-      const result = db.prepare(`
-        UPDATE classification_reports SET
-          classifier_id = ?, date = ?, license_plate = ?, weight_kg = ?, carrier = ?, invoice_url = ?,
-          test_type = ?, live_insects = ?, dead_insects = ?, odor = ?, toxicity = ?,
-          burnt_and_scorched = ?, scorched = ?, moldy = ?, fermented = ?, germinated = ?, shriveled = ?,
-          damaged_total = ?, immature = ?, humidity = ?, impurities = ?, greenish = ?, broken_crushed = ?,
-          observations = ?, final_classification = ?, discounts_json = ?, signature_date = ?
-        WHERE os_id = ?
+      db.prepare(`
+        INSERT INTO classification_reports (
+          os_id, classifier_id, date, license_plate, weight_kg, carrier, invoice_url,
+          test_type, live_insects, dead_insects, odor, toxicity,
+          burnt_and_scorched, scorched, moldy, fermented, germinated, shriveled,
+          damaged_total, immature, humidity, impurities, greenish, broken_crushed,
+          observations, final_classification, discounts_json, signature_date
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
-        classifier_id || null, classificationDate || null, license_plate || '', weight_kg || null, carrier || '', invoice_url || '',
-        test_type || '', live_insects || '', dead_insects || '', odor || '', toxicity || '',
-        burnt_and_scorched || null, scorched || null, moldy || null, fermented || null, germinated || null, shriveled || null,
-        damaged_total || null, immature || null, humidity || null, impurities || null, greenish || null, broken_crushed || null,
-        observations || '', frontendClassification || calculatedClassification || '', frontendDiscounts || JSON.stringify(discounts) || '{}', frontendSignatureDate || signatureDate,
-        os_id
+        os_id, classifier_id, date, license_plate, weight_kg, carrier, invoice_url,
+        test_type, live_insects, dead_insects, odor, toxicity,
+        burnt_and_scorched, scorched, moldy, fermented, germinated, shriveled,
+        damaged_total, immature, humidity, impurities, greenish, broken_crushed,
+        observations, final_classification, JSON.stringify(discounts), new Date().toISOString()
       );
-      
-      console.log('✅ UPDATE SUCESSO:', result);
-      
-      // Se não atualizou nenhuma linha, fazer INSERT
-      if (result.changes === 0) {
-        console.log('=== NO ROWS UPDATED, DOING INSERT ===');
-        
-        const insertResult = db.prepare(`
-          INSERT INTO classification_reports (
-            os_id, classifier_id, date, license_plate, weight_kg, carrier, invoice_url,
-            test_type, live_insects, dead_insects, odor, toxicity,
-            burnt_and_scorched, scorched, moldy, fermented, germinated, shriveled,
-            damaged_total, immature, humidity, impurities, greenish, broken_crushed,
-            observations, final_classification, discounts_json, signature_date
-          )
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(
-          os_id || null, classifier_id || null, classificationDate || null, license_plate || '', weight_kg || null, carrier || '', invoice_url || '',
-          test_type || '', live_insects || '', dead_insects || '', odor || '', toxicity || '',
-          burnt_and_scorched || null, scorched || null, moldy || null, fermented || null, germinated || null, shriveled || null,
-          damaged_total || null, immature || null, humidity || null, impurities || null, greenish || null, broken_crushed || null,
-          observations || '', frontendClassification || calculatedClassification || '', frontendDiscounts || JSON.stringify(discounts) || '{}', frontendSignatureDate || signatureDate
-        );
-        
-        console.log('✅ INSERT SUCESSO:', insertResult);
-      }
 
       db.prepare("UPDATE service_orders SET status = 'FINISHED' WHERE id = ?").run(os_id);
       
-      console.log('✅ Laudo salvo com sucesso!');
-      res.json({ success: true, final_classification: frontendClassification || calculatedClassification, action: result.changes > 0 ? 'updated' : 'created' });
+      res.json({ success: true, final_classification });
     } catch (error: any) {
-      console.error('❌ Erro ao salvar laudo:', error);
-      console.error('❌ Stack trace:', error.stack);
       res.status(500).json({ error: error.message });
-    }
-  });
-
-  app.delete("/api/reports/:id", authenticateToken, (req, res) => {
-    const { id } = req.params;
-    
-    try {
-      const result = db.prepare("DELETE FROM classification_reports WHERE id = ?").run(id);
-      
-      if (result.changes === 0) {
-        return res.status(404).json({ error: "Laudo não encontrado" });
-      }
-      
-      res.json({ success: true, message: "Laudo excluído com sucesso" });
-    } catch (error) {
-      console.error("Erro ao excluir laudo:", error);
-      res.status(500).json({ error: "Erro ao excluir laudo" });
     }
   });
 
@@ -1318,26 +1151,16 @@ async function startServer() {
     res.json({ success: true, total_amount });
   });
 
-  // Vite middleware for development - MOVIDO PARA O FINAL
+  // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
-    // Middleware do Vite só para rotas que não são da API
-    app.use((req, res, next) => {
-      if (req.path.startsWith('/api/')) {
-        return next();
-      }
-      return vite.middlewares(req, res, next);
-    });
+    app.use(vite.middlewares);
   } else {
     app.use(express.static(path.join(__dirname, "dist")));
-    // Em produção, só serve o index.html para rotas que não são da API
-    app.get("*", (req, res, next) => {
-      if (req.path.startsWith('/api/')) {
-        return next();
-      }
+    app.get("*", (req, res) => {
       res.sendFile(path.join(__dirname, "dist", "index.html"));
     });
   }
