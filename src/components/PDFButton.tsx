@@ -107,11 +107,13 @@ export const PDFButton: React.FC<PDFButtonProps> = ({
     return (
       <button
         onClick={handleDownloadPDF}
-        className={`inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors ${className}`}
+        className={`group inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-xl shadow-lg shadow-purple-500/25 hover:shadow-xl hover:from-purple-600 hover:to-purple-700 transition-all duration-200 hover:-translate-y-0.5 ${className}`}
         title="Baixar PDF"
       >
-        <FileText size={16} />
-        <span>PDF</span>
+        <div className="w-5 h-5 bg-white/20 rounded-lg flex items-center justify-center">
+          <FileText size={14} className="text-white" />
+        </div>
+        <span className="font-medium">PDF</span>
       </button>
     )
   }
@@ -120,11 +122,13 @@ export const PDFButton: React.FC<PDFButtonProps> = ({
     return (
       <button
         onClick={handlePrint}
-        className={`inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors ${className}`}
+        className={`group inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-xl shadow-lg shadow-emerald-500/25 hover:shadow-xl hover:from-emerald-600 hover:to-emerald-700 transition-all duration-200 hover:-translate-y-0.5 ${className}`}
         title="Imprimir"
       >
-        <Printer size={16} />
-        <span>Imprimir</span>
+        <div className="w-5 h-5 bg-white/20 rounded-lg flex items-center justify-center">
+          <Printer size={14} className="text-white" />
+        </div>
+        <span className="font-medium">Imprimir</span>
       </button>
     )
   }
@@ -133,19 +137,23 @@ export const PDFButton: React.FC<PDFButtonProps> = ({
     <div className={`flex gap-2 ${className}`}>
       <button
         onClick={handleDownloadPDF}
-        className="inline-flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+        className="group inline-flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-xl shadow-lg shadow-purple-500/25 hover:shadow-xl hover:from-purple-600 hover:to-purple-700 transition-all duration-200 hover:-translate-y-0.5"
         title="Baixar PDF"
       >
-        <Download size={16} />
-        <span>PDF</span>
+        <div className="w-5 h-5 bg-white/20 rounded-lg flex items-center justify-center">
+          <Download size={14} className="text-white" />
+        </div>
+        <span className="font-medium">PDF</span>
       </button>
       <button
         onClick={handlePrint}
-        className="inline-flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+        className="group inline-flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-xl shadow-lg shadow-emerald-500/25 hover:shadow-xl hover:from-emerald-600 hover:to-emerald-700 transition-all duration-200 hover:-translate-y-0.5"
         title="Imprimir"
       >
-        <Printer size={16} />
-        <span>Imprimir</span>
+        <div className="w-5 h-5 bg-white/20 rounded-lg flex items-center justify-center">
+          <Printer size={14} className="text-white" />
+        </div>
+        <span className="font-medium">Imprimir</span>
       </button>
     </div>
   )

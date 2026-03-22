@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Search, Filter, Plus, FileText } from 'lucide-react'
+import { Search, Filter, Plus, FileText, Calendar, ClipboardCheck } from 'lucide-react'
 import LaudoCard from '../components/LaudoCard'
 import PDFButton from '../components/PDFButton'
 import { LaudoData } from '../services/pdfService'
@@ -71,108 +71,112 @@ export const LaudosPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Laudos de Classificação</h1>
-              <p className="text-sm text-gray-600 mt-1">Gerencie e visualize todos os laudos emitidos</p>
-            </div>
-            <button className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-              <Plus size={20} />
-              <span>Novo Laudo</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Filtros */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-          <div className="flex flex-col sm:flex-row gap-4">
-            {/* Busca */}
-            <div className="flex-1">
-              <div className="relative">
-                <Search size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Buscar por número, cliente ou produto..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50/30">
+      {/* Header Moderno */}
+      <div className="bg-white/80 backdrop-blur-xl border-b border-slate-200/60 sticky top-0 z-50 shadow-sm">
+        <div className="px-6 py-6">
+          <div className="flex flex-col lg:flex-row gap-6 items-start lg:items-center justify-between">
+            <div className="space-y-2">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/25">
+                  <ClipboardCheck className="text-white" size={24} />
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">
+                    Laudos de Classificação
+                  </h1>
+                  <p className="text-slate-500 font-medium">Gerencie e visualize todos os laudos emitidos</p>
+                </div>
               </div>
             </div>
-
-            {/* Filtro de Status */}
-            <div className="w-full sm:w-48">
-              <div className="relative">
-                <Filter size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none"
-                >
-                  <option value="all">Todos Status</option>
-                  <option value="DRAFT">Rascunho</option>
-                  <option value="PENDING">Pendente</option>
-                  <option value="APPROVED">Aprovado</option>
-                  <option value="REJECTED">Rejeitado</option>
-                </select>
+            
+            <div className="flex items-center gap-4">
+              <div className="hidden lg:flex items-center gap-2 px-4 py-2 bg-slate-100 rounded-xl">
+                <Calendar className="text-slate-600" size={16} />
+                <span className="text-sm font-medium text-slate-700">
+                  {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                </span>
               </div>
+              
+              <button className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-xl shadow-lg shadow-emerald-500/25 hover:shadow-xl hover:from-emerald-600 hover:to-emerald-700 transition-all duration-200 flex items-center gap-2 font-medium">
+                <Plus size={18} />
+                Novo Laudo
+              </button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Lista de Laudos */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
-        {isLoading ? (
-          <div className="flex justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          </div>
-        ) : filteredLaudos.length === 0 ? (
-          <div className="text-center py-12">
-            <FileText size={48} className="mx-auto text-gray-400 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhum laudo encontrado</h3>
-            <p className="text-gray-600">
-              {searchTerm || statusFilter !== 'all' 
-                ? 'Tente ajustar os filtros para encontrar o que procura.'
-                : 'Comece emitindo seu primeiro laudo de classificação.'
-              }
-            </p>
-          </div>
-        ) : (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {filteredLaudos.map((laudo) => (
-              <LaudoCard
-                key={laudo.laudo_number}
-                laudo={laudo}
+      <div className="px-6 py-8 space-y-8">
+        {/* Filtros Modernos */}
+      <div className="bg-white rounded-3xl border border-slate-200/60 shadow-lg shadow-slate-200/25 p-8">
+        <div className="flex flex-col lg:flex-row gap-6">
+          <div className="flex-1">
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+              <input
+                type="text"
+                placeholder="Buscar por número, cliente ou produto..."
+                className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all text-slate-900 placeholder-slate-400"
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
               />
-            ))}
+            </div>
           </div>
-        )}
+          
+          <select
+            className="px-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all text-slate-900 font-medium"
+            value={statusFilter}
+            onChange={e => setStatusFilter(e.target.value)}
+          >
+            <option value="all">Todos Status</option>
+            <option value="aprovado">Aprovados</option>
+            <option value="pendente">Pendentes</option>
+            <option value="reprovado">Reprovados</option>
+          </select>
+        </div>
       </div>
 
-      {/* Botão Flutuante para PDF Rápido */}
-      <div className="fixed bottom-6 right-6">
-        <button
-          onClick={() => {
-            if (filteredLaudos.length > 0) {
-              handleGeneratePDF(filteredLaudos[0])
-            }
-          }}
-          className="inline-flex items-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-all hover:scale-105"
-          title="Gerar PDF do primeiro laudo"
-        >
-          <FileText size={20} />
-          <span>PDF</span>
-        </button>
+      {/* Container de Laudos */}
+      <div className="bg-white rounded-3xl border border-slate-200/60 shadow-lg shadow-slate-200/25 overflow-hidden">
+        <div className="p-8 border-b border-slate-200/60">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/25">
+              <ClipboardCheck className="text-white" size={24} />
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900">Lista de Laudos</h2>
+              <p className="text-slate-500 mt-1">Todos os laudos emitidos pelo sistema</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-8">
+          {isLoading ? (
+            <div className="flex justify-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+            </div>
+          ) : filteredLaudos.length === 0 ? (
+            <div className="text-center py-12">
+              <ClipboardCheck className="mx-auto text-slate-300 size-12 mb-4" />
+              <p className="text-slate-500">Nenhum laudo encontrado</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredLaudos.map((laudo) => (
+                <LaudoCard
+                  key={laudo.laudo_number}
+                  laudo={laudo}
+                  onGeneratePDF={handleGeneratePDF}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
       </div>
     </div>
-  )
-}
+  );
+};
 
 export default LaudosPage

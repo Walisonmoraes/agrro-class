@@ -332,56 +332,95 @@ export const Classification = ({ osId: initialOsId, onBack }: ClassificationProp
   ];
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-stone-900">Laudos de Classificação</h2>
-          <p className="text-stone-500">Gerencie e registre as análises técnicas dos grãos.</p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50/30">
+      {/* Header Moderno - Estilo Billing */}
+      <div className="bg-white/80 backdrop-blur-xl border-b border-slate-200/60 sticky top-0 z-50 shadow-sm">
+        <div className="px-6 py-6">
+          <div className="flex flex-col lg:flex-row gap-6 items-start lg:items-center justify-between">
+            <div className="space-y-2">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/25">
+                  <ClipboardCheck className="text-white" size={24} />
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">
+                    Laudos de Classificação
+                  </h1>
+                  <p className="text-slate-500 font-medium">Gerencie e registre as análises técnicas dos grãos</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-4">
+              <div className="hidden lg:flex items-center gap-2 px-4 py-2 bg-slate-100 rounded-xl">
+                <Calendar className="text-slate-600" size={16} />
+                <span className="text-sm font-medium text-slate-700">
+                  {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                </span>
+              </div>
+              
+              <button 
+                onClick={() => {
+                  // Reset form to initial empty state when creating new classification
+                  setFormData({
+                    os_id: initialOsId || '',
+                    classifier_id: '',
+                    date: '',
+                    license_plate: '',
+                    weight_kg: '',
+                    carrier: '',
+                    invoice_url: '',
+                    test_type: '',
+                    live_insects: '',
+                    dead_insects: '',
+                    odor: '',
+                    toxicity: '',
+                    burnt_and_scorched: '',
+                    scorched: '',
+                    moldy: '',
+                    fermented: '',
+                    germinated: '',
+                    shriveled: '',
+                    damaged_total: '',
+                    immature: '',
+                    humidity: '',
+                    impurities: '',
+                    greenish: '',
+                    broken_crushed: '',
+                    observations: '',
+                    final_classification: '',
+                    discounts_json: ''
+                  });
+                  setEditingReportId(null);
+                  setIsModalOpen(true);
+                  setStep(1);
+                }}
+                className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-xl shadow-lg shadow-emerald-500/25 hover:shadow-xl hover:from-emerald-600 hover:to-emerald-700 transition-all duration-200 flex items-center gap-2 font-medium"
+              >
+                <Plus size={18} />
+                Novo Laudo
+              </button>
+            </div>
+          </div>
         </div>
-        <button 
-          onClick={() => {
-            // Reset form to initial empty state when creating new classification
-            setFormData({
-              os_id: initialOsId || '',
-              classifier_id: '',
-              date: '',
-              license_plate: '',
-              weight_kg: '',
-              carrier: '',
-              invoice_url: '',
-              test_type: '',
-              live_insects: '',
-              dead_insects: '',
-              odor: '',
-              toxicity: '',
-              burnt_and_scorched: '',
-              scorched: '',
-              moldy: '',
-              fermented: '',
-              germinated: '',
-              shriveled: '',
-              damaged_total: '',
-              immature: '',
-              humidity: '',
-              impurities: '',
-              greenish: '',
-              broken_crushed: '',
-              observations: '',
-              final_classification: '',
-              discounts_json: ''
-            });
-            setEditingReportId(null);
-            setIsModalOpen(true);
-            setStep(1);
-          }}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-xl flex items-center gap-2 font-bold transition-all shadow-lg shadow-emerald-600/20"
-        >
-          <Plus size={20} /> Novo Laudo
-        </button>
       </div>
 
-      {/* Reports List */}
-      <div className="bg-white rounded-3xl shadow-sm border border-stone-200 overflow-hidden">
+      <div className="px-6 py-8 space-y-8">
+
+      {/* Lista de Laudos - Estilo Billing */}
+      <div className="bg-white rounded-3xl border border-slate-200/60 shadow-lg shadow-slate-200/25 overflow-hidden">
+        <div className="p-8 border-b border-slate-200/60">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/25">
+              <ClipboardCheck className="text-white" size={24} />
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900">Histórico de Laudos</h2>
+              <p className="text-slate-500 mt-1">Todos os laudos emitidos pelo sistema</p>
+            </div>
+          </div>
+        </div>
+        
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
@@ -838,14 +877,7 @@ export const Classification = ({ osId: initialOsId, onBack }: ClassificationProp
           </div>
         )}
       </AnimatePresence>
-      
-      {/* Modal de Visualização de PDF */}
-      <PDFViewerModal
-        isOpen={isPDFModalOpen}
-        onClose={closePDFModal}
-        pdfData={pdfData}
-        fileName={pdfFileName}
-      />
+      </div>
     </div>
   );
 };

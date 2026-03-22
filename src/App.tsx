@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuthStore } from './store/authStore';
 import { Layout } from './components/Layout';
 import { DashboardEnhanced } from './pages/DashboardEnhanced';
+import { DashboardFinanceiro } from './pages/DashboardFinanceiro';
 import { Login } from './pages/Login';
 import { Clients } from './pages/Clients';
 import { ServiceOrders } from './pages/ServiceOrders';
@@ -13,6 +14,7 @@ import { Classifiers } from './pages/Classifiers';
 import { Products } from './pages/Products';
 import { Reports } from './pages/Reports';
 import { Faturas } from './pages/Faturas';
+import { NHE } from './pages/NHE';
 import { BillingModal } from './components/BillingModal';
 
 export default function App() {
@@ -29,6 +31,7 @@ export default function App() {
   const renderPage = () => {
     switch (currentPage) {
       case 'dashboard': return <DashboardEnhanced />;
+      case 'dashboard-financeiro': return <DashboardFinanceiro />;
       case 'clients': return <Clients />;
       case 'orders': return <ServiceOrders 
         key={refreshOrders} 
@@ -42,6 +45,7 @@ export default function App() {
       case 'classifiers': return <Classifiers />;
       case 'products': return <Products />;
       case 'reports': return <Reports />;
+      case 'rne': return <NHE />;
       default: return <div className="p-8 text-stone-500 italic">Página em desenvolvimento...</div>;
     }
   };

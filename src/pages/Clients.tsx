@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, MapPin, Phone, Mail, X, Save } from 'lucide-react';
+import { Plus, Search, MapPin, Phone, Mail, X, Save, Users, Calendar } from 'lucide-react';
 import { apiFetch } from '../services/api';
 
 export const Clients = () => {
@@ -55,26 +55,68 @@ export const Clients = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-stone-800">Clientes</h2>
-        <button 
-          onClick={() => setShowModal(true)}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl flex items-center gap-2 font-medium transition-all"
-        >
-          <Plus size={20} />
-          Novo Cliente
-        </button>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50/30">
+      {/* Header Moderno */}
+      <div className="bg-white/80 backdrop-blur-xl border-b border-slate-200/60 sticky top-0 z-50 shadow-sm">
+        <div className="px-6 py-6">
+          <div className="flex flex-col lg:flex-row gap-6 items-start lg:items-center justify-between">
+            <div className="space-y-2">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/25">
+                  <Users className="text-white" size={24} />
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">
+                    Clientes
+                  </h1>
+                  <p className="text-slate-500 font-medium">Gerencie o cadastro de clientes e fornecedores</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-4">
+              <div className="hidden lg:flex items-center gap-2 px-4 py-2 bg-slate-100 rounded-xl">
+                <Calendar className="text-slate-600" size={16} />
+                <span className="text-sm font-medium text-slate-700">
+                  {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                </span>
+              </div>
+              
+              <button 
+                onClick={() => setShowModal(true)}
+                className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-xl shadow-lg shadow-emerald-500/25 hover:shadow-xl hover:from-emerald-600 hover:to-emerald-700 transition-all duration-200 flex items-center gap-2 font-medium"
+              >
+                <Plus size={18} />
+                Novo Cliente
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden">
-        <div className="p-4 border-b border-stone-100 flex items-center gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" size={18} />
+      <div className="px-6 py-8 space-y-8">
+
+      {/* Tabela Moderna */}
+      <div className="bg-white rounded-3xl border border-slate-200/60 shadow-lg shadow-slate-200/25 overflow-hidden">
+        <div className="p-8 border-b border-slate-200/60">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/25">
+              <Users className="text-white" size={24} />
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900">Lista de Clientes</h2>
+              <p className="text-slate-500 mt-1">Todos os clientes cadastrados no sistema</p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="p-8">
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
             <input 
               type="text" 
-              placeholder="Pesquisar..." 
-              className="w-full pl-10 pr-4 py-2 bg-stone-50 border border-stone-200 rounded-lg outline-none focus:border-emerald-500 transition-all text-sm"
+              placeholder="Buscar por nome, CNPJ/CPF..." 
+              className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 placeholder-slate-400"
             />
           </div>
         </div>
@@ -344,6 +386,7 @@ export const Clients = () => {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 };

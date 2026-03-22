@@ -3,10 +3,37 @@
 @import "@fontsource-variable/geist";
 
 @tailwind base;
-
-@custom-variant dark (&:is(.dark *));
 @tailwind components;
 @tailwind utilities;
+
+/* Remover completamente os efeitos de seleção dos gráficos */
+.recharts-tooltip-cursor {
+  display: none !important;
+}
+
+.recharts-active-shape {
+  filter: none !important;
+  transform: none !important;
+}
+
+.recharts-sector {
+  filter: none !important;
+  transform: none !important;
+}
+
+.recharts-bar-rectangle {
+  filter: none !important;
+  transform: none !important;
+}
+
+/* Remover qualquer outline ou focus dos gráficos */
+.recharts-surface {
+  outline: none !important;
+}
+
+.recharts-layer {
+  outline: none !important;
+}
 
 @theme inline {
     --font-heading: var(--font-sans);
@@ -118,16 +145,4 @@
     --sidebar-accent-foreground: oklch(0.985 0 0);
     --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.556 0 0);
-}
-
-@layer base {
-  * {
-    @apply border-border outline-ring/50;
-    }
-  body {
-    @apply bg-background text-foreground;
-    }
-  html {
-    @apply font-sans;
-    }
 }
